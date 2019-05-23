@@ -1,0 +1,228 @@
+
+=head1 SYNOPSIS
+
+    #include <klel.h>
+
+=head2 Basic Usage
+
+    KLEL_CONTEXT *KlelCompile
+    (
+      const char *pcExpression,
+      unsigned long ulFlags,
+      KLEL_TYPE_CALLBACK pfTypeCallback,
+      KLEL_VALUE_CALLBACK pfValueCallback,
+      void *pvData
+    );
+
+    KLEL_VALUE *KlelExecute
+    (
+      KLEL_CONTEXT *psExpression
+    );
+
+    void KlelFreeResult
+    (
+      KLEL_VALUE *psValue
+    );
+
+    void KlelFreeContext
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+=head2 Handling Errors
+
+    void KlelReportError
+    (
+      KLEL_CONTEXT *psContext, 
+      const char *pcFormat,
+      ...,
+      NULL
+    );
+
+    const char *KlelGetFirstError
+    (
+      KLEL_CONTEXT *psError
+    );
+
+    const char *KlelGetNextError
+    (
+      KLEL_CONTEXT *psError
+    );
+
+=head2 Getting Information About Expressions
+
+    int KlelIsValid
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    char *KlelGetName
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    KLEL_EXPR_TYPE KlelGetTypeOfExpression
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    uint32_t KlelGetChecksum
+    (
+      KLEL_CONTEXT *psContext,
+      unsigned long ulFlags
+    );
+
+=head2 Working With Private Data
+
+    void *KlelGetPrivateData
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    void KlelSetPrivateData
+    (
+      KLEL_CONTEXT *psContext,
+      void *pvData
+    );
+
+=head2 Creating Values
+
+    KLEL_VALUE *KlelCreateBoolean
+    (
+      int bBool
+    );
+
+    KLEL_VALUE *KlelCreateInteger
+    (
+      int64_t iInteger
+    );
+
+    KLEL_VALUE *KlelCreateReal
+    (
+      double dReal
+    );
+
+    KLEL_VALUE *KlelCreateString
+    (
+      size_t szLength,
+      const char *pcString
+    );
+
+    KLEL_VALUE *KlelCreateFunction
+    (
+      KLEL_EXPR_TYPE iType,
+      KLEL_VALUE *(fCallback)(KLEL_VALUE **, void *)
+    );
+
+    KLEL_VALUE *KlelCreateUnknown
+    (
+      void
+    );
+
+=head2 Working With Guarded Commands
+
+    int KlelIsSuccessReturnCode
+    (
+      KLEL_CONTEXT *psContext,
+      unsigned int uiCode
+    );
+
+    int KlelIsGuardedCommand
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    KLEL_COMMAND *KlelGetCommand
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    char *KlelGetCommandInterpreter
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    char *KlelGetCommandProgram
+    (
+      KLEL_CONTEXT *psContext
+    );
+
+    void KlelFreeCommand
+    (
+      KLEL_COMMAND *psCommand
+    );
+
+=head2 Converting Values and Expressions to Strings
+
+    char *KlelExpressionToString
+    (
+      KLEL_CONTEXT *psContext,
+      unsigned long ulFlags
+    );
+
+    void KlelSetQuotedChars
+    (
+      const char *pcChars
+    );
+
+    void KlelSetQuoteChar
+    (
+      char cChar
+    );
+
+    char *KlelValueToQuotedString
+    (
+      KLEL_VALUE *psValue,
+      size_t *ulLength
+    );
+
+    char *KlelValueToString
+    (
+      KLEL_VALUE *psValue,
+      size_t *ulLength
+    );
+
+=head2 Obtaining Release Information
+
+    uint32_t KlelGetReleaseNumber
+    (
+      void
+    );
+
+    const char *KlelGetReleaseString
+    (
+      void
+    );
+
+    int KlelGetReleaseMajor
+    (
+      void
+    );
+
+    int KlelGetReleaseMinor
+    (
+      void
+    );
+
+    int KlelGetReleasePatch
+    (
+      void
+    );
+
+=head2 Obtaining Library Information
+
+    int KlelGetVersionCurrent
+    (
+      void
+    );
+
+    int KlelGetVersionRevision
+    (
+      void
+    );
+
+    int KlelGetVersionAge
+    (
+      void
+    );
+

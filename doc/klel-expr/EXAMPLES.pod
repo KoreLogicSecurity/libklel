@@ -1,0 +1,84 @@
+
+=head1 EXAMPLES
+
+The following examples are intended to demonstrate different ways of
+invoking B<klel-expr>.  Lines prefixed with B<$> indicate user input
+within a Bourne or Bourne-like shell.
+
+=head2 Example 1. A simple expression.
+
+In this example, a simple arithmetic expression is evaluated.
+
+    $ klel-expr -e '1 + 2'
+    3
+
+When you run the command shown above, B<klel-expr> will compile the
+expression, evaluate it, and then print out the result ('3').
+
+Note that the quotes around the expression are required since
+B<klel-expr> accepts only a single expression argument.
+
+=head2 Example 2. A simple expression with debug output.
+
+In this example, another arithmetic expression is evaluated.  More
+importantly, the debug-output option is exercised.
+
+    $ klel-expr -d -e '2 * pi + 7 / 42 + entier(299.398)'
+    KlelType='value expression'
+    KlelExpr='((2 * pi) + 7 / 42) + entier(299.398)'
+    KlelExprName='expr(00003e7b)'
+    KlelExprStatus='pass'
+    KlelExprType='real'
+    KlelExprOutput=<<EndOfOutput
+    305.283
+    EndOfOutput
+
+When you run the command shown above, B<klel-expr> will compile the
+expression, evaluate it, and then print out the result (305.283) along
+with additional data that are useful for debugging and/or
+informational purposes.
+
+=head2 Example 3. Executing a guarded command.
+
+In this example, a guarded command is evaluated and conditionally
+executed using B<system(3)>.
+
+    $ klel-expr -e 'if (true) then eval("system", "echo -n GIGO | sum")'
+    41101 1
+
+When you run the command shown above, B<klel-expr> will compile the
+expression, evaluate it, and conditionally execute the guarded command
+('echo -n GIGO | sum').  Since the expression always evaluates to
+true, the guarded command will always be executed.
+
+Note that B<klel-expr> supports two interpreters, B<system> and
+B<echo>.  The B<system> interpreter takes one argument (a string) and
+passes it to B<system(3)>.  The B<echo> interpreter takes an arbitrary
+number of arguments (the first of which must be a literal string) and
+echos them to the standard output.
+
+=head2 Example 4. Executing a named expression.
+
+In this example, a named expression is evaluated.
+
+    $ klel-expr -e 'my_expression : 1 + 2.1'
+    3.1
+
+When you run the command shown above, B<klel-expr> will compile the
+expression, evaluate it, and then print out the result (3.1).
+
+=head2 Example 5. Using B<let> and variable interpolation.
+
+In this example, a simple expression involving the use of B<let> and
+variable interpolation is evaluated.
+
+    $ klel-expr -e 'let t = now() in odd(t) ? "%{t} --> odd" : "%{t} --> even"'
+    1353099233 --> odd
+
+When you run the command shown above, B<klel-expr> will compile the
+expression, evaluate it, and then print out the result.
+
+Note how the variable B<t> is expressed as '%{t}' in the ternary,
+which allows its value to be interpolated to produce the resulting
+string value.
+

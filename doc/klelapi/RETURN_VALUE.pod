@@ -1,0 +1,29 @@
+
+=head1 RETURN VALUES
+
+B<KlelCompile> returns a pointer to a B<KLEL_CONTEXT> structure or
+NULL indicating that no context could be created.  To determine if any
+errors occurred, the pointer (whether it's NULL or not) should be
+passed to and evaluated by B<KlelIsValid>.
+
+B<KlelExecute> returns a pointer to a B<KLEL_VALUE> structure or NULL
+indicating a failure.  If the call failed, any errors that occurred
+can be retrieved using B<KlelGetFirstError> and B<KlelGetNextError>.
+The value returned by B<KlelExecute> should be freed using
+B<KlelFreeResult> once it's no longer needed.
+
+B<KlelIsValid> returns nonzero (i.e., true) if the specified
+B<KLEL_CONTEXT> structure represents a valid expression (i.e., the
+expression compiled without errors) and zero (i.e., false) otherwise.
+
+B<KlelGetFirstError> returns the first error in the list of errors or
+NULL if there are no errors.  B<KlelGetNextError> returns the next
+error or NULL if there are no more errors.  Note that calling
+B<KlelGetFirstError> resets the traversal of the error list.  Also
+note that the strings returned by these functions should not be freed
+since those resources are managed by the implementation.
+
+All other functions return a pointer to a result on success or NULL
+indicating a failure.  The programmer is responsible for freeing the
+values returned by these functions.
+

@@ -1,0 +1,192 @@
+
+=head1 EXPORTING FUNCTIONS AND VARIABLES EXAMPLE
+
+Here is some source code that we can add to the example program above
+that demonstrates how to export variables and functions into the KL-EL
+environment where they can be used in KL-EL expressions.  We export an
+integer variable, "arg_count", that holds the number of command line
+arguments passed to the application.  We also export a function,
+"get_arg", that returns a string representation of the numbered
+command line argument.
+
+The code below should be inserted into the example above starting at
+line 4.
+
+    1 #include <string.h>
+    2
+    3 int giArgumentCount = 0;
+    4 char **gppcArgumentVector = NULL;
+    5
+    6 KLEL_VALUE *
+    7 GetArg(KLEL_VALUE **ppsArgs, void *pvContext)
+    8 {
+    9   int64_t i64Arg = ppsArgs[0]->llInteger;
+   10
+   11   if (i64Arg < 0 || i64Arg >= giArgumentCount)
+   12   {
+   13     KlelReportError((KLEL_CONTEXT *)pvContext, "get_arg: invalid argument", NULL);
+   14     return NULL;
+   15   }
+   16
+   17   return KlelCreateString(strlen(gppcArgumentVector[i64Arg]), gppcArgumentVector[i64Arg]);
+   18 }
+   19
+   20 KLEL_EXPR_TYPE
+   21 GetType(const char *pcName, void *pvContext)
+   22 {
+   23   if (strcmp(pcName, "arg_count") == 0)
+   24   {
+   25     return KLEL_TYPE_INT64;
+   26   }
+   27   else if (strcmp(pcName, "get_arg") == 0)
+   28   {
+   29     return KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64);
+   30   }
+   31
+   32   return KLEL_TYPE_UNKNOWN;
+   33 }
+   34
+   35 KLEL_VALUE *
+   36 GetValue(const char *pcName, void *pvContext)
+   37 {
+   38   if (strcmp(pcName, "arg_count") == 0)
+   39   {
+   40     return KlelCreateInteger(giArgumentCount);
+   41   }
+   42   else if (strcmp(pcName, "get_arg") == 0)
+   43   {
+   44     return KlelCreateFunction(KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64), "get_arg", GetArg);
+   45   }
+   46
+   47   return KlelCreateUnknown();
+   48 }
+
+After inserting this code into the basic example above, change the
+basic example's compile expression from this
+
+   13   psContext = KlelCompile(pcExpression, 0, NULL, NULL, NULL);
+
+to this
+
+   13   psContext = KlelCompile(pcExpression, 0, GetType, GetValue, NULL);
+   14   giArgumentCount = iArgumentCount;
+   15   gppcArgumentVector = ppcArgumentVector;
+
+By doing this, KL-EL expressions now have access to a new variable,
+"arg_count" and a new function "get_arg".  Let's examine the new code
+in depth.
+
+KL-EL allows you to export variables and functions by defining two
+callback functions.  One function is called with a variable name and
+returns the type of that variable.  The other function is called with
+a variable name and returns the value of that variable.  The type of a
+variable can never change, but a variable's value can change at any
+time.  We export the B<GetArg> function as "get_arg" and the
+B<giArgumentCount> variable as "arg_count".
+
+Let's start by looking at the type callback, B<GetType>:
+
+   20 KLEL_EXPR_TYPE
+   21 GetType(const char *pcName, void *pvContext)
+   22 {
+   23   if (strcmp(pcName, "arg_count") == 0)
+   24   {
+   25     return KLEL_TYPE_INT64;
+   26   }
+   27   else if (strcmp(pcName, "get_arg") == 0)
+   28   {
+   29     return KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64);
+   30   }
+   31
+   32   return KLEL_TYPE_UNKNOWN;
+   33 }
+
+This function simply checks the name of the variable it's supposed to
+look up and returns the appropriate type: KLEL_TYPE_INT64 for
+"arg_count" and a slightly more complicated type descriptor for
+"get_arg" that says that it is a function that returns a string and
+takes one argument, an integer.  If it's passed a variable name it
+doesn't know, it returns KLEL_TYPE_UNKNOWN, which causes KL-EL to
+search the standard library to see if it can be found there.
+
+In this simple example we just use a cascading if-then-else to figure
+out which variable name was passed in.  In larger applications, a hash
+function might be used to hash the variable name and turn it into a
+table lookup.
+
+Now let's look at the function that returns those variables' values,
+B<GetValue>:
+
+   35 KLEL_VALUE *
+   36 GetValue(const char *pcName, void *pvContext)
+   37 {
+   38   if (strcmp(pcName, "arg_count") == 0)
+   39   {
+   40     return KlelCreateInteger(giArgumentCount);
+   41   }
+   42   else if (strcmp(pcName, "get_arg") == 0)
+   43   {
+   44     return KlelCreateFunction(KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64), "get_arg", GetArg);
+   45   }
+   46
+   47   return KlelCreateUnknown();
+   48 }
+
+The basic structure of this function is similar to B<GetType>: it
+determines which variable is being requested, and returns the
+appropriate value.  It uses the B<KlelCreateInteger> function to
+create the integer value for "arg_count", and B<KlelCreateFunction> to
+create the function value for "get_arg".  By returning the result of
+B<KlelCreateUnknown> if it doesn't know the value of the variable, it
+causes KL-EL to search the standard library.
+
+If the values of the exported variables were calculated dynamically
+(which they certainly can be), returning NULL instead of the result of
+B<KlelCreateUnknown> would signal to KL-EL that the variable is known
+but an error occurred.  In that case, KL-EL won't search the standard
+library.
+
+Both B<GetType> and B<GetValue> take a second argument, a void pointer
+to the context.  This is the same value (cast as a void pointer) that
+was returned by B<KlelCompile>.
+
+The value returned for "arg_count" isn't that interesting -- it's just
+an integer.  The value returned for "get_arg" is much more interesting
+-- it's a function that will get invoked by the library.  Let's look
+at the exported function, B<GetArg>:
+
+    6 KLEL_VALUE *
+    7 GetArg(KLEL_VALUE **ppsArgs, void *pvContext)
+    8 {
+    9   int64_t i64Arg = ppsArgs[0]->llInteger;
+   10
+   11   if (i64Arg < 0 || i64Arg >= giArgumentCount)
+   12   {
+   13     KlelReportError((KLEL_CONTEXT *)pvContext, "get_arg: invalid argument", NULL);
+   14     return NULL;
+   15   }
+   16
+   17   return KlelCreateString(strlen(gppcArgumentVector[i64Arg]), gppcArgumentVector[i64Arg]);
+   18 }
+
+Just like B<GetValue>, exported functions must return a pointer to a
+KLEL_VALUE.  Exported functions take two arguments, an array of
+pointers to B<KLEL_VALUE> representing the the function's arguments,
+and a void pointer for the current context.  There are always exactly
+thirteen entries in I<ppsArgs>, though they aren't all necessarily
+filled in.  The zeroeth entry is the function's first argument, and
+arguments are specified in ascending order.
+
+B<GetArg> is pretty simple -- it just takes the value of its first
+argument (an integer) and either returns the corresponding command
+line argument as a string, or it reports an error and returns NULL.
+The library's internal type checker guaranteed that this function
+would be called with one integer argument, so it's technically okay
+that this example doesn't explicitly check -- but there's no harm in
+double checking if you want.
+
+Finally, the last change needed to export our variable and function
+was to pass the two callback functions to B<KlelCompile>.  Once that
+is done, your new variable and function are ready for use in KL-EL
+expressions.
+

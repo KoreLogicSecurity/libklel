@@ -1,0 +1,119 @@
+
+REVISION
+
+  $Id: README.TYPES,v 1.6 2012/11/14 23:54:53 rking Exp $
+
+TYPE DESCRIPTOR SCHEME
+
+  KL-EL type descriptors are stored as 64-bit integers.  Several types
+  are defined.  Types may describe one of the following kinds of data:
+
+    unknown      - a value of unknown type
+    primitive    - a primitive value
+    function     - an executable function
+    closed array - a closed array of primitive values (reserved)
+    open array   - an open array of primitive values (reserved)
+    tuple        - an ordered collection of primitive values (reserved)
+
+  As of this release, only the unknown, primitive, and function types
+  are supported.  The remaining types are not yet implemented.
+
+  The meaning of each of the 64 bits depends on the kind of type being
+  described:
+
+  UNKNOWN TYPES
+  =============
+
+    The unknown type descriptor has the following format:
+
+      0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+
+    Note that all bits are zero.
+
+  PRIMITIVE TYPES
+  ===============
+
+    The primitive type descriptor has the following format:
+
+      0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 TTTT
+
+    where 'TTTT' identifies which primitive type is being described
+    according to the following codes:
+
+      0001 - boolean
+      0010 - int8     (reserved)
+      0011 - int16    (reserved)
+      0100 - int32    (reserved)
+      0101 - int64
+      0110 - uint8    (reserved)
+      0111 - uint16   (reserved)
+      1000 - uint32   (reserved)
+      1001 - uint64   (reserved)
+      1010 - real
+      1011 - string
+      1100 - none     (reserved)
+      1101 - none     (reserved)
+      1110 - none     (reserved)
+      1111 - none     (reserved)
+
+  FUNCTION TYPES
+  ==============
+
+    The function type descriptor has the following format:
+
+      0001 CCCC AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA AAAA RRRR
+
+    where 'CCCC' indicates the argument count [0-13], 'AAAA' indicates
+    an argument type (a primitive), and 'RRRR' indicates the return
+    type (a primitive).  Function arguments are defined from left
+    (high-order bit positions) to right (low-order bit positions).
+
+  CLOSED ARRAY TYPES
+  ==================
+
+    The closed array type descriptor has the following format:
+
+      0010 0000 0000 0000 0000 0000 0000 LLLL LLLL LLLL LLLL LLLL LLLL LLLL LLLL TTTT
+
+    where 'LLLL' indicates the length (in members) of the array and
+    'TTTT' indicates the base type (a primitive) of the aray.  Note
+    that the size of closed arrays can be derived directly from their
+    type, allowing the type checker to check a greater range of uses
+    at compile time for safety.
+
+  OPEN ARRAY TYPES
+  ================
+
+    The open array type descriptor has the following format:
+
+      0011 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 TTTT
+
+    where 'TTTT' indicates the base type (a primitive) of the array.
+    Note that open arrays are dynamically sized, with the size
+    determined at runtime.  Open arrays therefore cannot have as great
+    a range of operations checked at compile time for safety.
+
+  TUPLE TYPES
+  ===========
+
+    The tuple type descriptor has the following format:
+
+      0100 CCCC TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT TTTT
+
+    where 'CCCC' indicates the member count [0-14] and 'TTTT'
+    indicates a member type.  Tuple members are defined from left
+    (high-order bit positions) to right (low-order bit positions).
+
+COMMENTS AND CAVEATS
+
+  The type descriptor scheme presented above allows for simple and
+  efficient comparison and specification of type descriptors,
+  including easy use of type descriptors in static variables.
+
+  Note that this scheme is not closed over types; there is a clear
+  distinction between primitive and other types.  Notably, only
+  primitive types may be passed to and returned from functions, and
+  only primitive types can be the base type of an array or a tuple
+  member.  This is seen as a reasonable limitation in light of KL-EL's
+  intended use as a simple embedded expression language.
+

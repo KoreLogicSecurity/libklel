@@ -1,0 +1,48 @@
+
+REVISION
+
+  $Id: README.GRAMMAR,v 1.7 2012/06/21 18:44:55 rking Exp $
+
+GRAMMAR
+
+  KlelRoot          <--  [Designator ':'] (GuardedCommand | Expression)
+
+  GuardedCommand    <-- 'if' '(' Expression ')' 'then' 'eval' '(' String ',' String {',' Expression} ')' [('pass' | 'fail') '[' Integer {',' Integer} ']'
+
+  Expression        <-- Conditional | Let | SimpleExpression [Relation SimpleExpression]
+
+  Conditional       <-- Factor '?' Expression ':' Expression
+
+  Let               <-- 'let' Designator '=' Expression 'in' Expression
+
+  Factor            <-- Integer | Real | String | Call | Designator | '(' Expression ')' | '!' Factor | '~' Factor | '-' Factor
+
+  Integer           <-- '0x' HexDigit {HexDigit} | '0o' OctDigit {OctDigit} | DecDigit {DecDigit}
+
+  HexDigit          <-- DecDigit | 'A' | 'a' | 'B' | 'b' | 'C' | 'c' | 'D' | 'd' | 'E' | 'e' | 'F' | 'f'
+
+  OctDigit          <-- '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7'
+
+  DecDigit          <-- '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+  Real              <-- DecDigit '.' DecDigit {DecDigit} ['e' ['+' | '-'] DecDigit {DecDigit}]
+
+  String            <-- '"' {Character} '"'
+
+  Character         <-- '\' ('\' | '"' | 'n' | 'r' | '%' | 'x' HexDigit HexDigit) | '%{' Designator '}' | '%(' Designator ')' | <any character except '\', '"', '%'>
+
+  Call              <-- Designator '(' [Expression {',' Expression}] ')'
+
+  Designator        <-- Letter {Letter | DecDigit | '_'}
+
+  Letter            <-- <any character x such that isalpha(x) == 1 where islapha is C89 isalpha(3) using the 'C' locale>
+
+  SimpleExpression  <-- Term {AddOperator Term}
+
+  Term              <-- Factor {MulOperator Factor}
+
+  MulOperator       <-- '*' | '/' | '%' | '&&' | '<<' | '>>'
+
+  AddOperator       <-- '.' | '+' | '-' | '||' | '&' | '^' | '|'
+
+  Relation          <-- '<' | '>' | '<=' | '>=' | '!=' | '==' | '=~' | '!~'

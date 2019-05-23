@@ -1,0 +1,137 @@
+
+=head1 GUARDED COMMANDS
+
+=head2 What Are Guarded Commands?
+
+Guarded commands are a kind of two-part expression.  The first part of
+the expression is called the "guard", and the second part is the
+"command".  The guard must be a boolean expression, and the command
+must be a call to the special function "eval".
+
+Guarded commands allow for extra information to be passed to an
+application from the expression.  The extra information consists of
+two strings, known as the "interpreter" and the "program", a
+collection of 256 integers called "exit codes", and up to twelve
+additional strings.
+
+Conventionally, guarded commands are used to pass operating system
+commands to the application to be executed, but KL-EL assigns no
+semantics to them other than that they are guarded commands with a
+boolean expression for a guard.  KL-EL has been used as a "control
+language" for some applications that embed multiple programming
+language interpreters (Python, Perl, Lua, etc) to determine which
+interpreter should be run on a given set of input by using guarded
+commands.
+
+Guarded commands look like this:
+
+    if (filename == "/etc/passwd") then
+      eval("exec", "/bin/rm", "-f", filename) pass [0, 255]
+
+The part in parentheses after the "if" is the guard.  The rest of the
+expression after the "then" is the command.  In this example, "exec"
+is the interpreter and "/bin/rm" is the program.
+
+One might read this example as saying "if the value of the 'filename'
+variable is '/etc/passwd', then execute the '/bin/rm' command with the
+following arguments and assume the operation was successful if the
+exit code is 0 or 255.
+
+While you I<could> read it that way, KL-EL doesn't enforce any of that
+-- it's up to your application to decide what to do with the success
+criteria provided in this expression.  KL-EL provides functions to
+extract each of the various parts of the guarded command.
+
+There are some type checking and syntactic limits enforced by KL-EL on
+guarded commands:
+
+=over 4
+
+=item The guard expression must be boolean
+
+=item The first two arguments to the B<eval> function must be literal
+strings with no interpolations and shorter than 255 bytes.
+
+=item Exit codes must be literal integers.
+
+=back
+
+=head2 Compiling and Executing Guarded Commands
+
+If you just use B<KlelCompile> and B<KlelExecute> and don't run the
+guarded command in the specified interpreter, then KL-EL will simply
+treat a guarded command as a boolean expression.  More specifically,
+it will act as though the guard is the whole expression.
+
+The function B<KlelIsGuardedCommand> will test to see if a compiled
+expression is a guarded command.  If you want to force the user to
+only provide guarded commands, the I<KLEL_MUST_BE_GUARDED_COMMAND>
+flag should be passed to B<KlelCompile>.  If this flag is set,
+B<KlelCompile> will return a compilation error for any requests to
+compile a non-guarded command.
+
+If a guarded command is supplied, then you can use the following
+functions on the compiled expression:
+
+=over 4
+
+=item B<KlelGetInterpreter>
+
+returns the interpreter argument to the B<eval> function
+
+=item B<KlelGetProgram>
+
+returns the program argument to the B<eval> function
+
+=item B<KlelIsSuccessReturnCode>
+
+returns true or false if the code passed in is a successful code
+according to the expression.
+
+=back
+
+None of the functions above will cause evaluation of the remaining
+arguments to the B<eval> function, so they can be called even before
+your callbacks are ready to be executed.  This allows you to make sure
+these arguments are valid and set up any external interpreters you may
+need.
+
+Once you're ready to evaluate the remaining arguments to the B<eval>
+function, you can call the B<KlelGetCommand> function.  Presumably
+you'd do this if the result of B<KlelExecute> was true, but it's up to
+you.  The B<KlelGetCommand> function returns a pointer to a
+B<KLEL_COMMAND> structure.  This structure contains all of the
+information about the guarded command and is defined as follows:
+
+    typedef struct _KLEL_COMMAND
+    {
+      char pcInterpreter[KLEL_MAX_NAME + 1];
+      char pcProgram[KLEL_MAX_NAME + 1];
+      size_t szArgumentCount;
+      char *ppcArgumentVector[KLEL_MAX_FUNC_ARGS + 1];
+      int aiCodes[256];
+    } KLEL_COMMAND;
+
+The I<pcInterpreter> and I<pcProgram> arguments simply contain the
+associated string.  The I<aiCodes> array contains a nonzero value in
+every position that corresponds to a successful exit code.  Note that
+if the expression does not contain any exit codes (they are optional),
+then 0 is considered the only successful exit code.
+
+Most interesting, however, is the I<ppcArgumentVector> array.  This
+contains the values of the remaining arguments to the B<eval> function
+converted to strings.  As a convenience, the first entry in this array
+is identical to the contents of the I<pcProgram> member; this makes it
+easy to interface with the I<execv(3)> family of functions.
+
+Once you're done with a B<KLEL_COMMAND> structure, it needs to be
+freed using B<KlelFreeCommand>.
+
+The B<klel-expr> program included in the KL-EL source distribution
+accepts normal expressions and guarded commands.  It evaluates normal
+expressions and prints their results, but for guarded commands, it
+defines two interpreters: "echo" and "system".  For the "echo"
+interpreter, it simply echos the contents of I<ppcArgumentVector>.
+The "system" interpreter takes the contents of I<pcProgram> and passes
+it to the standard I<system(3)> function.
+

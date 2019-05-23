@@ -1,0 +1,14 @@
+# NOTE: This is an automake include file, which is different than a make include file.
+
+POD2MAN_ARGS = --center="KoreLogic Expression Language (KLEL)" --release="$(PACKAGE_STRING)"
+
+.pod.man:
+	pod2man $(POD2MAN_ARGS) $< > $@
+
+clean-local: clean-remove-man
+
+clean-remove-man:
+	rm -f *.man
+
+test: check
+

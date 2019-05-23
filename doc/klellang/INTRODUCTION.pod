@@ -1,0 +1,23 @@
+
+=head1 INTRODUCTION
+
+This manual page documents the language as understood by the KL-EL
+library.  For documentation on how to embed the KL-EL compiler and
+interpreter in an application, see I<klelapi(3)>.  For a tutorial on
+how to use the library, see I<kleltut(3)>.
+
+The language understood by KL-EL is an B<expression language>.
+Everything in the language is an expression that has a value.  The
+purpose of the library is to allow these expressions to be input at
+runtime and have the application make use of the resulting values in
+some fashion.
+
+There are two kinds of KL-EL expressions: B<value expressions> (often
+referred to as simply "expressions") and B<guarded commands>.  Guarded
+commands are more complicated, but they are also very useful in
+certain situations.  Because guarded commands are more complex than
+value expressions, they will be covered second.
+
+Expressions in KL-EL are not sensitive to whitespace; whitespace is
+only significant inside literal strings.
+

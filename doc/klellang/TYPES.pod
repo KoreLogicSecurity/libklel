@@ -1,0 +1,48 @@
+
+=head1 A NOTE ON TYPES
+
+Every value in KL-EL has one and only one type, and the type of a
+given expression never changes.  That makes KL-EL strongly typed, and
+this typing discipline is possibly its most interesting feature.
+KL-EL was designed to be useful in applications where an expression is
+compiled only once but executed thousands or millions of times with
+different parameters, and possibly on ephemeral or forensic data.  If
+typechecking were not performed until evaluation, it is possible that
+a failure could occur after millions of executions on some set of
+inputs, rendering the entire run (or a large portion of it) invalid.
+In the best case, the expression could be fixed and execution could
+pick up where it left off, but in the worst case, it may be impossible
+to recover the values used previously or begin execution again.
+Checking types at compile time also makes things faster for multiple
+executions of a given expression, since types do not need to be
+checked on each execution.
+
+KL-EL understands four types:
+
+=over 4
+
+=item Booleans (either true or false)
+
+=item Integers (signed 64-bit)
+
+=item Reals (IEEE double-precision floating point)
+
+=item Strings (sequences of bytes with no length limitations, embedded
+NULL bytes are allowed)
+
+=back
+
+Functions are provided to transform values of one type to another type
+as necessary.  In general, there is no concept of type promotion.
+Expressions like
+
+    "123" + 5
+
+don't work since addition is not defined for strings.  There is a
+slight relaxation of this restriction for expressions involving a
+mixture of integers and reals -- integers are silently promoted to
+real values when they are used in arithmetic expressions involving
+reals.  This is the only exception to the typing discipline.  Note
+that the exception only applies to arithmetic expressions -- functions
+expecting real arguments will not accept integer arguments.
+

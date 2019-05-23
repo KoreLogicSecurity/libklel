@@ -1,0 +1,125 @@
+
+=head1 BASIC EXAMPLE
+
+Here is a simple application that uses KL-EL, in its entirety.  Note
+that the line numbers are for explanatory purposes.
+
+    1 #include <klel.h>
+    2 #include <stdio.h>
+    3 #include <stdlib.h>
+    4
+    5 int
+    6 main(int iArgumentCount, char **ppcArgumentVector)
+    7 {
+    8   KLEL_CONTEXT *psContext = NULL;
+    9   KLEL_VALUE *psResult = NULL;
+   10   char *pcExpression = (iArgumentCount >= 2) ? ppcArgumentVector[1] : "";
+   11   char *pcMessage = NULL;
+   12   size_t szLength = 0;
+   13   psContext = KlelCompile(pcExpression, 0, NULL, NULL, NULL);
+   14   if (KlelIsValid(psContext))
+   15   {
+   16     psResult = KlelExecute(psContext);
+   17     if (psResult != NULL)
+   18     {
+   19       pcMessage = KlelValueToString(psResult, &szLength);
+   20       fprintf(stdout, "result: %s\n", pcMessage);
+   21       KlelFreeResult(psResult);
+   22       free(pcMessage);
+   23     }
+   24     else
+   25     {
+   26       fprintf(stderr, "error: %s\n", KlelGetFirstError(psContext));
+   27     }
+   28   }
+   29   else
+   30   {
+   31     fprintf(stderr, "error: %s\n", KlelGetFirstError(psContext));
+   32   }
+   33   KlelFreeContext(psContext);
+   34
+   35   return 0;
+   36 }
+
+This example includes basic error handling and shows how simple
+embedding KL-EL can be.  When compiled and linked with the KL-EL
+library, this program will take the first argument (which represents a
+KL-EL expression) and compile/execute it.  Then, the result of that
+execution is converted to a string value and printed to stdout.
+
+Let's analyze what's going on here.  The first really interesting call
+is this:
+
+   13   psContext = KlelCompile(pcExpression, 0, NULL, NULL, NULL);
+
+This compiles the expression (or an empty string if the user didn't
+provide an argument) and returns a B<KLEL_CONTEXT> structure.  The
+I<0> means that we aren't passing any special flags to the compiler.
+The next two NULLs mean that we're not exporting any variables into
+the KL-EL envrionment, and the final NULL means that we have no
+user-defined data to pass around.
+
+Next we check to make sure the compile was successful:
+
+   14   if (KlelIsValid(psContext))
+
+If B<KlelIsValid> returns zero (false), it means that an error
+occurred during compilation and the resulting context, if any, is
+useless for anything except getting error messages.  Assuming
+compilation succeeded, we then proceed to execute the expression:
+
+   16     psResult = KlelExecute(psContext);
+
+B<KlelExecute> will return NULL if execution fails with any generated
+error messages being stored in the provided context.  If execution
+doesn't fail, we proceed to print out the result of the execution and
+free the result since we're done using it:
+
+   19       pcMessage = KlelValueToString(psResult, &szLength);
+   20       fprintf(stdout, "result: %s\n", pcMessage);
+   21       KlelFreeResult(psResult);
+   22       free(pcMessage);
+
+Most of the rest of the example is simply error handling that is
+called if either compilation or execution fails.  Multiple errors can
+be generated in either phase, but in this example we're only
+interested in the most recent error returned by B<KlelGetFirstError>.
+We could elect to iteratively call B<KlelGetNextError> to get any
+remaining errors.  Doing so is often useful for gathering more
+information about the string of errors, if any, leading up to the most
+recent error.  Note that errors are stored in the B<KLEL_CONTEXT>
+structure on a LIFO basis.
+
+The final thing we do is free the context for the expression:
+
+   33   KlelFreeContext(psContext);
+
+And that's it!
+
+Note that the context could have been executed again or as many times
+as you wish.  There's no global state in KL-EL, so different threads
+can compile expressions and run them simultaneously (though a single
+context shouldn't be shared across threads without proper handling and
+serialization).
+
+Assuming the source file from above is named "klel-basic.c" and you
+have an appropriate build environment (including gcc, libklel, and
+libpcre), you should be able to compile the code as follows:
+
+    $ gcc -o klel-basic klel-basic.c -lklel -lpcre
+
+Try out a few simple expressions:
+
+    $ klel-basic '2 + 2'
+    result: 4
+
+    $ klel-basic 'pi / e'
+    result: 1.15573
+
+    $ klel-basic '"0x" . hex_of_int(65536)'
+    result: 0x10000
+
+This tutorial includes a few more complicated examples below, but this
+example shows the basic workflow followed by any application that
+embeds KL-EL.
+

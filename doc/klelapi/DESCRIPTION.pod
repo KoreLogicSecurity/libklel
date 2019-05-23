@@ -1,0 +1,392 @@
+
+=head1 DESCRIPTION
+
+The KL-EL API is used to embed one or more KL-EL compilers and
+interpreters in a program.  Though there are many functions, most
+exist only to provide advanced features.  It is recommended that
+programmers read B<klellang(3)> to understand the expression language
+and B<kleltut(3)> for a tutorial introduction to this API.
+
+All applications embedding KL-EL follow the same basic workflow:
+
+=over 4
+
+=item Compile an expression using B<KlelCompile>.
+
+=item Execute a compiled expression some number of times using
+B<KlelExecute>.
+
+=item Free the result value using B<KlelFreeResult>.
+
+=item Free the compiled expression after use using B<KlelFreeContext>.
+
+=back
+
+=head2 BASIC USAGE
+
+=head3 Compiling an Expression
+
+A KL-EL expression is compiled using the B<KlelCompile> function,
+which has the following prototype:
+
+    KLEL_CONTEXT *KlelCompile
+    (
+      const char *pcExpression,
+      unsigned long ulFlags,
+      KLEL_TYPE_CALLBACK pfTypeCallback,
+      KLEL_VALUE_CALLBACK pfValueCallback,
+      void *pvData
+    );
+
+I<pcExpression> is a NULL-terminated string that represents the
+expression to compile.
+
+I<ulFlags> is zero or more of the following flags ORed together:
+
+=over 4
+
+=item MUST_BE_GUARDED_COMMAND
+
+This flag indicates that the expression must be a guarded command.
+
+=item MUST_BE_GUARDED_COMMAND_WITH_RETURN_CODES
+
+This is a convenience flag that can be used instead of
+MUST_BE_GUARDED_COMMAND ORed with MUST_SPECIFY_RETURN_CODES.
+
+=item MUST_BE_NAMED
+
+This flag indicates that the expression must include a name.
+
+=item MUST_SPECIFY_RETURN_CODES
+
+This flag indicates that the expression must specify 'pass' or 'fail'
+codes.  Note that if this flag is set, the library automatically sets
+the MUST_BE_GUARDED_COMMAND flag since only guarded commands can have
+return codes.
+
+=back
+
+I<pfTypeCallback> is a pointer to a function that the library will
+call whenever it needs to know the type of a variable that has been
+exported into the KL-EL runtime.  This function must have the
+following prototype:
+
+    KLEL_EXPR_TYPE callback
+    (
+      const char *pcName,
+      void *pvContext
+    );
+
+where I<pcName> is the name of the variable under consideration and
+I<pvContext> is a pointer to the context.  This callback must return
+one of the predefined KL-EL variable types (see TYPES below) or
+KLEL_TYPE_UNKNOWN, in which case KL-EL will automatically check its
+standard library to see if the variable is defined there.
+
+Exported variables are of exactly one type and that type can never
+change.  In other words, given the same arguments, the
+I<pfTypeCallback> function must always return the same value.
+
+I<pfValueCallback> is a pointer to a function that the library will
+call whenever it needs to know the value of a variable that has been
+exported into the KL-EL runtime.  This function must have the
+following prototype:
+
+    KLEL_VALUE *callback
+    (
+      const char *pcName,
+      void *pvContext
+    );
+
+where I<pcName> and I<pvContext> have the same meanings as for the
+type callback.  This function returns the value of the named variable,
+created using one of the value creation functions (see CREATING VALUES
+below).  While a variable's type may never change, its value can
+change at any time.  This allows for variables to have different
+values in different situations.  A variable's value can change during
+execution and in between exections with no limitations.
+
+I<pvData> is a void pointer that can be retrieved using the current
+context and B<KlelGetPrivateData>.  The data referenced by this
+pointer are never touched by the library.  Typically these data would
+be used to help compute the types or values of variables, or they may
+be used for any other user-defined purpose.  These data may be changed
+at any point using B<KlelSetPrivateData>.
+
+B<KlelCompile> returns a pointer to an opaque B<KLEL_CONTEXT>
+structure.  This structure should be passed to B<KlelIsValid> to
+determine if compilation succeeded.  Note that contexts are not
+thread-safe.  Therefore, it is recommended that the same context only
+be accessed from a single thread at a time.  If needed, a context can
+be shared across threads, but only if its access and manipulation are
+serialized.  There is no predefined limit to the number of contexts
+that may exist within a single program or thread.
+
+=head3 Checking If Compilation Succeeded
+
+Once an expression has been compiled, the result of B<KlelCompile>
+should be passed to B<KlelIsValid>, which returns nonzero if the
+expression compiled without errors or zero if the compilation had
+errors.  If the compilation had errors, the context is unusable except
+to retrieve error information using B<KlelGetFirstError> and
+B<KlelGetNextError>.
+
+=head3 Executing an Expression
+
+A compiled expression can be executed by passing its context to
+B<KlelExecute>.  This function executes the expression and returns a
+pointer to a B<KLEL_VALUE> structure, which represents the result of
+execution.  A given compiled expression can be executed as many times
+as desired; there is no need to recompile it.  The returned
+B<KLEL_VALUE> structure has the following members:
+
+=over 4
+
+=item iType
+
+One of B<KLEL_TYPE_BOOLEAN>, B<KLEL_TYPE_INT64>, B<KLEL_TYPE_REAL>, or
+B<KLEL_TYPE_STRING>.
+
+=item bBoolean
+
+A boolean value if iType is B<KLEL_TYPE_BOOLEAN>.  This value is
+encoded as an integer in the underlying implementation.
+
+=item llInteger
+
+An integer value if iType is B<KLEL_TYPE_INT64>.  This value is
+encoded as an int64_t in the underlying implementation.
+
+=item dReal
+
+A real value if iType is B<KLEL_TYPE_REAL>.  This value is encoded as
+a double in the underlying implementation.
+
+=item szLength
+
+The length in bytes of the string value if iType is
+B<KLEL_TYPE_STRING>.  This value is encoded as a size_t in the
+underlying implementation.
+
+=item acString
+
+An array of szLength characters if iType is B<KLEL_TYPE_STRING>.
+This value is encoded as an array of characters in the underlying
+implementation.
+
+=back
+
+Note that strings can contain NULL bytes.  The length of a string is
+always its length in bytes, regardless of encoding.  The returned
+B<KLEL_VALUE> is not owned by the library -- it's up to the programmer
+to free this value once it's no longer needed using B<KlelFreeResult>.
+
+If the compiled expression is a guarded command (see I<klellang(3)>),
+the resulting value will be the result of the expression's guard.
+Other information about the guarded command can be retrieved using the
+helper functions documented below.
+
+=head3 Freeing Results and Contexts
+
+When a context is no longer needed, it should be passed to
+B<KlelFreeContext>.  Results from expressions should be freed using
+B<KlelFreeResult>.  Guarded command structures (see I<klellang(3)>)
+should be freed using B<KlelFreeCommand>.
+
+=head3 Handling Errors
+
+If compilation or execution of an expression fails, one or more error
+messages will be present.  To traverse the list of errors, call
+B<KlelGetFirstError>, and then call B<KlelGetNextError> until it
+returns NULL.  Each of these calls returns a string describing errors,
+which may be printed or otherwise reported.  These strings are owned
+by the library and should not be freed by the programmer.
+
+To report an error during execution of a callback function, call
+B<KlelReportError>, which takes a context, a I<printf(3)>-style format
+string, and a variable number of arguments.  This creates an error
+string that is added to the context.  The final argument must be NULL.
+Callbacks are free to report errors in any way the developer chooses,
+but those errors reported with B<KlelReportError> are only available
+via the B<KlelGetFirstError> and B<KlelGetNextError> functions.
+
+=head3 Getting Information About a Compiled Expression
+
+B<KlelIsValid> will check a compiled expression to see if it compiled
+without errors.  There is no need to check to see if the pointer is
+NULL before passing it to this function.
+
+B<KlelGetName> will return the name of a compiled expression, if the
+expression was named.  If the expression was not named, the library
+will generate a name based on the input expression.  The returned
+string should be freed once it's no longer needed.
+
+B<KlelGetTypeOfExpression> returns the type of a compiled expression
+(one of B<KLEL_TYPE_BOOLEAN>, B<KLEL_TYPE_INT64>, B<KLEL_TYPE_REAL>,
+or B<KLEL_TYPE_STRING>).
+
+B<KlelGetChecksum> computes a checksum of the expression.  This is
+useful for comparing two expressions for equality.  Note that such
+comparisons are performed on the compiled representation rather than
+the input string, meaning that things like whitespace are ignored.
+The B<ulFlags> argument is the same as for B<KlelExpressionToString>.
+
+=head3 Working With Private Data
+
+The private data of a compiled expression (i.e., the void pointer that
+is passed to the type- and value-producing callbacks) can be retrieved
+or set using B<KlelGetPrivateData> or B<KlelSetPrivateData>,
+respectively.  The private data can be set at any time, including
+during execution, and that change takes place immediately -- there is
+no need to recompile the expression.
+
+=head3 Creating Values
+
+The value callback passed to B<KlelCompile> should return the value of
+variables when asked.  These callback functions create new values to
+be used by the library representing the value of the specified
+variable at that point in time.  As was stated above, a variable's
+type may never change, but a variable's value can change at any time
+and as often as the programmer desires.
+
+Boolean values are created using B<KlelCreateBoolean>, which takes a
+single numeric argument.  Zero means false, all other values mean
+true.
+
+Integer values are created using B<KlelCreateInteger>, which takes a
+single numeric argument.  Integers in KL-EL are always signed 64-bit
+integers; the argument passed to this function will be cast as
+necessary.
+
+Real values are created using B<KlelCreateReal>, which takes a single
+double argument.  Note that integer values are automatically cast as
+necessary.
+
+String values are created using B<KlelCreateString>, which takes two
+arguments: a size_t indicating the length in bytes of the string (not
+including any terminating zero), and a pointer to a string.  The
+library makes a copy of this string, so it may be freed at any time.
+
+Function values are slightly more complicated.  They are created
+using B<KlelCreateFunction>, which takes three arguments: a type
+descriptor, which describes the function's return type and argument
+types; a name (as a normal zero-terminated C string); and a function
+pointer to the function that should be invoked when KL-EL executes
+the function.  The type descriptor is constructed as described in
+TYPES below.
+
+If the named variable is "unknown" to the callback (i.e., not exported
+by the host application), then the callback function should return the
+result of B<KlelCreateUnknown>, which instructs KL-EL to search its
+standard library for the named variable.  If there is an error in
+calculating the value of the named variable, but it is "known" to the
+callback, then the callback should return NULL, which instructs KL-EL
+to immediately report the error without searching its standard
+library.
+
+=head3 Working With Guarded Commands
+
+Guarded commands are KL-EL expressions that contain extra metadata.  A
+programmer can determine if an expression is a guarded command by
+calling B<KlelIsGuardedCommand>, which returns nonzero if the
+expression is a guarded command.
+
+The interpreter (the first argument to the special I<eval> function)
+and program (the second argument to the special I<eval> function) can
+be retrieved using B<KlelGetCommandInterpreter>.  This returns a
+string which must be freed once it's no longer needed.
+
+If the programmer wishes to evaluate the contents of the I<eval>
+function (presumably when the guard is true, but in theory at any
+time), the function B<KlelGetCommand> can be used.  This returns a
+pointer to a B<KLEL_COMMAND> structure.  The format of this structure
+is:
+
+    typedef struct _KLEL_COMMAND
+    {
+      char pcInterpreter[KLEL_MAX_NAME + 1];
+      char pcProgram[KLEL_MAX_NAME + 1];
+      size_t szArgumentCount;
+      char *ppcArgumentVector[KLEL_MAX_FUNC_ARGS + 1];
+      int aiCodes[256];
+    } KLEL_COMMAND;
+
+I<pcInterpreter> is the first argument to the I<eval> function, and
+I<pcProgram> is the second.
+
+I<szArgumentCount> indicates the number of arguments to the I<eval>
+function, not including I<pcInterpreter>; the corresponding members of
+I<ppcArgumentVector> are filled in.  The library automatically
+converts all of the values in that vector to strings.  The first
+member of the I<ppcArgumentVector> array is identical to I<pcProgram>.
+
+The I<aiCodes> array stores which codes were specified as "successful"
+codes by the guarded command.  If a code is successful, the value at its
+index in this array will be nonzero, otherwise it will be zero.  If no
+codes are specified in the expression, zero is defined as a successful
+return code.
+
+Note that the library assigns no meaning to any of these fields, it
+simply passes the values from the compiled expression to the
+programmer.  It is up to the programmer to determine what to do with
+guarded commands.  Conventionally, I<pcInterpreter> specifies an
+interpreter or an environment, while I<pcProgram> specifies a program
+to run, and the arguments are passed to the executed program.  The
+programmer is free to ignore these conventions.
+
+When a programmer is done using a B<KLEL_COMMAND> structure, it should
+be freed using B<KlelFreeCommand>.
+
+=head3 Converting Values and Expressions to Strings
+
+A value can be converted to a string using B<KlelValueToString>, which
+takes two arguments: the value to convert, and a pointer to a size_t
+variable in which the length of the resulting string is stored.
+
+Values can also be converted to "quoted strings" using
+B<KlelValueToQuotedString>.  A quoted string is identical to the
+string produced by B<KlelValueToString>, but any special characters
+are prefixed with a quoting character.  What characters are considered
+special is determined by calling B<KlelSetQuotedChars> with a string
+(each character of which will be considered special).  The string
+passed to B<KlelSetQuotedChars> should not be freed.  What character
+is used for quoting is set by calling B<KlelSetQuoteChar> with a
+single character.
+
+An expression as a whole can be converted to a string by calling
+B<KlelExpressionToString>, which takes two arguments: the compiled
+expression, and a set of flags.  The flags are zero or more of the
+following ORed together:
+
+=over 4
+
+=item KLEL_EXPRESSION_ONLY
+
+include only the expression without its name.  If the expression is a
+guarded command, include only the guard expression
+
+=item KLEL_EXPRESSION_PLUS_COMMAND_LINE
+
+like KLEL_EXPRESSION_ONLY, but include its I<eval> function if it's a
+guarded command
+
+=item KLEL_EXPRESSION_PLUS_RETURN_CODES
+
+like KLEL_EXPRESSION_ONLY, but include any return code specifications
+if it's a guarded command
+
+=item KLEL_EXPRESSION_PLUS_NAME
+
+like KLEL_EXPRESSION_ONLY, but include the expression's name if one
+was specified
+
+=item KLEL_EXPRESSION_PLUS_EVERYTHING
+
+include all parts of the expression
+
+=back
+
+The string returned by B<KlelExpressionToString> should be freed once
+it's no longer needed.
+

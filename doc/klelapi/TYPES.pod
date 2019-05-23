@@ -1,0 +1,54 @@
+
+=head1 TYPES
+
+When exporting values into the KL-EL environment using the type and
+value callbacks passed to B<KlelCompile>, each variable must be given
+a type descriptor.  Type descriptors are represented using integers
+and constructed using various macros.
+
+Simple types (boolean values, integers, real numbers, and strings)
+have simple type descriptors:
+
+=over 4
+
+=item KLEL_TYPE_BOOLEAN
+
+=item KLEL_TYPE_INT64
+
+=item KLEL_TYPE_REAL
+
+=item KLEL_TYPE_STRING
+
+=back
+
+Function types are, however, slightly more complicated.  A function's
+type encodes its return type and the number and types of its
+arguments.  The macros to encode a function's type have the following
+form:
+
+    KLEL_TYPE_t_FUNCTIONn(a0, a1, ... aN);
+
+where I<t> is the return type of the function (which must be a simple
+type), I<n> is the number of arguments [0-13], and I<a0> through I<aN>
+represent the types of the corresponding positional arguments.  For
+functions taking zero arguments, the macro's argument list should be
+left empty.
+
+For example, a function returning an integer and taking a single
+string argument would look like this:
+
+    KLEL_TYPE_INT64_FUNCTION1
+    (
+      KLEL_TYPE_STRING
+    );
+
+A function returning a string and taking three arguments (two integers
+and a boolean) would look like this:
+
+    KLEL_TYPE_STRING_FUNCTION3
+    (
+      KLEL_TYPE_INT64,
+      KLEL_TYPE_INT64,
+      KLEL_TYPE_BOOLEAN
+    );
+

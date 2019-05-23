@@ -1,0 +1,18 @@
+
+=head1 NAMES
+
+Any top-level expression can be named, and this name can be extracted
+from the compiled expression at runtime.  This is useful in situations
+where there may be many unrelated expressions (say, in a configuration
+file), and it would be useful to identify expressions in diagnostics
+or other output.
+
+To name an expression, simply prefix it with a name and a colon.  A
+name in this case may consist of letters, numbers, and underscores,
+and must begin with a letter.  For example, this gives an expression
+"1 + 1" the name "Example":
+
+  Example : 1 + 1
+
+Once again, note that only top-level expressions may be named.
+

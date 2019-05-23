@@ -1,0 +1,261 @@
+
+=head1 VALUE EXPRESSIONS
+
+Value expressions are simple expressions that, when evaluated, produce
+a value.  There are seven different kinds of value expressions:
+
+=over 4
+
+=item Literals
+
+=item Variables
+
+=item Function calls
+
+=item Unary (arithmetic negation, logical negation, bitwise negation)
+
+=item Binary (arithmetic, string concatenation, comparison)
+
+=item Ternary (conditional evaluation)
+
+=item Let (lexical scoping)
+
+=back
+
+Each of these expression types is covered below.  For more information
+on how to retrieve the value of an evaluated expression using the
+library, see I<klelapi(3)>.
+
+=head2 LITERAL BOOLEANS
+
+There is no literal syntax for Boolean values.  The standard variables
+"true" and "false" are defined and have their expected meanings.
+
+=head2 LITERAL NUMBERS
+
+Numbers can be written in octal, decimal, or hexadecimal.  Octal
+numbers are prefixed with '0o', and hexadecimal numbers are prefixed
+with '0x'.  Sequences of decimal digits with no prefix are assumed to
+be in decimal.
+
+Real numbers are written in decimal, with '.' as the decimal point.
+The decimal point and one digit after it are obligatory.  An optional
+exponent can be provided by suffixing the number with 'e', an optional
+minus sign (indicating a negative exponent), and at least one decimal
+digit.
+
+=head2 LITERAL STRINGS
+
+Literal strings are written enclosed in double quotes.  Any character
+may appear between the double quotes except for newlines, double
+quotes, backslashes, percent signs, and literal zeros (NULL bytes).
+By using B<escapes>, these and other characters can be conveniently
+inserted.  The following escapes are defined:
+
+=over 4
+
+=item \\ (backslash)
+
+=item \" (double quote)
+
+=item \r (carriage return)
+
+=item \n (linefeed)
+
+=item \% (percent sign)
+
+=item \xHH (the byte whose value is HH in hexadecimal)
+
+=back
+
+Literal strings may also contain B<interpolations>.  Interpolations
+are of one of the forms
+
+    %{name}
+
+    %(name)
+
+It is because of this syntax that percent signs are recognized as an
+escapable character.  Interpolations take the value of the named
+variable, convert that value to a string, and embed the stringified
+value into the string produced by evaluating the string literal.
+Variable names enclosed in curly brackets have their value inserted as
+is, while those enclosed in parentheses have their values inserted
+after any special characters have been quoted (this is referred to as
+a B<quoted interpolation>).  In this case "special characters" and the
+character used to quote them are defined by the application using the
+library, with sensible defaults.
+
+=head2 VARIABLES
+
+Variables can be used anywhere where an expression is expected.
+Variables are of static type, but their values may change at any time.
+Variables are either B<exported> from the application using the
+library (referred to as the "host" or "host application"), or they are
+introduced by a B<let> expression (see below).  Applications using the
+library can export any number of variables into the KL-EL environment,
+allowing for simple interaction between the host application and
+KL-EL.  For information on how applications export variables into the
+KL-EL environment, see I<klelapi(3)>.
+
+KL-EL comes with a standard library that defines several variables.
+New variables can be introduced inside an expression by introducing a
+new scope using a B<let> expression; these expressions are discussed
+below.
+
+=head2 FUNCTION CALLS
+
+It is not possible to define a function in KL-EL, but the application
+using the library can export as many functions as it needs.  KL-EL
+also comes with a standard library of functions.  The functions in
+this library are automatically available for use in any expression
+unless specifically disallowed by the host application.
+
+A function call uses syntax familiar from C:
+
+    name(arg0, arg1, ... argN)
+
+Due to the way types are represented in the type checker, functions
+are limited to thirteen arguments.  It is important to note that
+functions are not first-class values; they can neither be passed as
+arguments to nor returned as the result of other functions.
+
+For more information on how to export a function into the KL-EL
+environment, see I<klelapi(3)>.
+
+=head2 UNARY OPERATIONS
+
+Below three (3) unary operators are defined in terms of their operator
+symbol, operand type, and result type.  The type codes B<B>, B<I>, and
+B<R> represent boolean, integer, and real types, respectively.
+
+                       ======= DEFINITION =======
+                               o  l  r  r
+                               p  e  i  e
+                               e  f  g  s
+                               r  t  h  u
+                               a  t  t  l
+                               t        t
+                               o
+                               r
+   ======  OPERATION  ===========================
+   Arithmetic Negation         -     I  I
+   Arithmetic Negation         -     R  R
+   Bitwise NOT                 ~     I  I
+   Boolean Negation            !     B  B
+
+Note that unary operators bind more tightly than any binary operator.
+
+=head2 BINARY OPERATIONS
+
+Below twenty-one (21) binary operators are defined in terms of their
+operator symbol, operand types, and result type.  These operators are
+listed in decreasing order of precedence.  The type codes B<B>, B<I>,
+B<R>, and B<S> represent boolean, integer, real, and string types,
+respectively.
+
+                       ======= DEFINITION =======
+                               o  l  r  r
+                               p  e  i  e
+                               e  f  g  s
+                               r  t  h  u
+                               a  t  t  l
+                               t        t
+                               o
+                               r
+   ======  OPERATION  ===========================
+   Multiplication              *  I  I  I
+   Multiplication              *  R  I  R
+   Multiplication              *  I  R  R
+   Multiplication              *  R  R  R
+   Division                    /  I  I  I
+   Division                    /  R  I  R
+   Division                    /  I  R  R
+   Division                    /  R  R  R
+   Modular Division            %  I  I  I
+   Logical Conjunction        &&  B  B  B
+   Bitwise Roll Left          <<  I  I  I
+   Bitwise Roll Right         >>  I  I  I
+   String Concatenation        .  S  S  S
+   Addition                    +  I  I  I
+   Addition                    +  R  I  R
+   Addition                    +  I  R  R
+   Addition                    +  R  R  R
+   Subtraction                 -  I  I  I
+   Subtraction                 -  R  I  R
+   Subtraction                 -  I  R  R
+   Subtraction                 -  R  R  R
+   Logical Disjunction        ||  B  B  B
+   Bitwise AND                 &  I  I  I
+   Bitwise XOR                 ^  I  I  I
+   Bitwise OR                  |  I  I  I
+   Less than                   <  I  I  B
+   Less than                   <  R  R  B
+   Less than                   <  S  S  B
+   Greater than                >  I  I  B
+   Greater than                >  R  R  B
+   Greater than                >  S  S  B
+   Less than or equal         <=  I  I  B
+   Less than or equal         <=  R  R  B
+   Less than or equal         <=  S  S  B
+   Greater than or equal      >=  I  I  B
+   Greater than or equal      >=  R  R  B
+   Greater than or equal      >=  S  S  B
+   Equal                      ==  B  B  B
+   Equal                      ==  I  I  B
+   Equal                      ==  R  R  B
+   Equal                      ==  S  S  B
+   Not equal                  !=  B  B  B
+   Not equal                  !=  I  I  B
+   Not equal                  !=  R  R  B
+   Not equal                  !=  S  S  B
+   Regex match                =~  S  S  B
+   Regex non-match            !~  S  S  B
+
+Note that the environment's localization settings (particularly
+collation order) may affect the result when comparing strings using
+the relational operators.
+
+For regular expression matches, the right operand is the expression;
+it is expected to be a string in PCRE syntax.  For more information,
+see I<pcre(3)>.
+
+Parentheses can be used to override the normal order of operations
+when necessary.
+
+=head2 THE TERNARY OPERATOR
+
+KL-EL defines a single ternary operator, '?'.  Ternary expressions are
+of the form:
+
+    predicate ? expr1 : expr2
+
+where B<predicate> is an expression of Boolean type and B<expr1> and
+B<expr2> are two expressions of the same type.  If B<predicate>
+evaluates to true, B<expr1> is evaluated, otherwise B<expr2> is
+evaluated.  Note that parenthesis are generally required around
+predicates unless they are syntactically trivial.  The type of a
+ternary expression is the type of B<expr1> or B<expr2>.
+
+=head2 LET EXPRESSIONS
+
+KL-EL is lexically scoped in the ALGOL tradition.  New environments
+are created using B<let> expressions.  These expressions are of the
+form:
+
+    let var = expr1 in expr2
+
+The value of this expression is the value of B<expr2> with every
+occurrence of B<var> substituted by the value of B<expr1>.  As B<let>
+expressions are normal expressions, they can be nested.  In
+particular, this is a valid (and common) idiom:
+
+    let var1 = expr1 in
+      let var2 = expr2 in
+        let var3 = expr3 in
+          var1 + var2 + var3
+
+Variables in nested scopes can shadow variables in outer scopes,
+though this functionality is best used sparingly.  Variables exported
+from the host application are in the outermost scope.
+

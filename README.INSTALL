@@ -1,7 +1,7 @@
 
 REVISION
 
-  $Id: README,v 1.4 2012/04/25 04:07:29 klm Exp $
+  $Id: README.INSTALL,v 1.4 2012/11/13 01:03:46 klm Exp $
 
 OVERVIEW
 
@@ -23,14 +23,28 @@ OVERVIEW
 
     http://libklel.sourceforge.net
 
-DOCUMENTATION
+REQUIREMENTS
 
-  General documentation is located in the doc directory.  See the
-  README.INSTALL file for instructions on how to build, test, and
-  install library.
+  To build and install the software associated with this library, you
+  will need:
 
-LICENSE
+    GNU Make (any recent version)
+    GCC (3.0 or higher; other compilers may work but are untested)
+    PCRE (7.8 or higher)
 
-  The terms and conditions under which this software is released are
-  set forth in README.LICENSE.
+  If you are compiling on a Windows platform, you will also need:
+
+    ActivePerl (5.8.8 build 822 or higher)
+    MinGW (5.1.4 or higher)
+    MSYS (1.0.10 or higher)
+
+INSTALLATION
+
+  To build and install the software associated with this library, run
+  the following commands from within a bash shell:
+
+    $ ./configure
+    $ make
+    $ make test
+    $ make install
 

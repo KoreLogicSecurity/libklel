@@ -1,0 +1,8 @@
+
+=pod
+
+=head1 INTRODUCTION
+
+This manual page provides a tutorial for the creation of a simple
+application that embeds the KL-EL compiler and interpreter.
+

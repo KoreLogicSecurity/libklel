@@ -1,0 +1,23 @@
+
+=head1 VARIABLES
+
+The following variables are defined in the standard library:
+
+                      ======= DEFINITION =======
+                              t  d
+                              y  e
+                              p  s
+                              e  c
+                                 r
+                                 i
+                                 p
+                                 t
+                                 i
+                                 o
+                                 n
+   ======   VARIABLE  ==========================
+   true                       B  Boolean true
+   false                      B  Boolean false
+   pi                         R  3.1415926535897932384 (approximation)
+   e                          R  2.7182818284590452354 (approximation)
+

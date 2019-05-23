@@ -1,0 +1,39 @@
+
+=head1 GUARDED COMMANDS
+
+Aside from B<value expressions>, KL-EL supports B<guarded commands>.
+A guarded command consists of a B<guard> of boolean type, a call to
+the special function B<eval>, and an optional list of return codes.
+The intent of guarded commands is to provide the host application with
+a command (where the meaning of "command" is defined by the host
+application), along with a set of supporting arguments, that is valid
+only when the guard expression is valid.
+
+Guarded commands have one of the following forms:
+
+  if (guard) then eval(interpreter, program, arg0, ... argN)
+
+  if (guard) then eval(interpreter, program, arg0, ... argN) pass [code0, ... codeN]
+
+  if (guard) then eval(interpreter, program, arg0, ... argN) fail [code0, ... codeN]
+
+In these forms B<guard> must be a value expression of boolean type,
+B<interpreter> and B<program> must be constant strings, and B<codes>
+must be literal integers.  The remaining arguments may be of any type.
+
+Guarded commands are useful in situations where it is important to
+distinguish between the action and the guard.  Take for example a
+file-finding application.  In this hypothetical application, a guarded
+command is used to specify a command to execute on every file that
+matches its expression thereby allowing the application to customize
+its behavior based on observed file attributes.
+
+In a guarded command, the arguments to the B<eval> function and the
+code values are passed as-is to the host application.  It is up to the
+application to determine their meaning.  For a discussion on how
+guarded commands are represented in host applications, see
+I<klelapi(3)>.
+
+It is important to note that guarded commands cannot be nested inside
+other expressions or guarded commands.
+

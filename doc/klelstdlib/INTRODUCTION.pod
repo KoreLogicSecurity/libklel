@@ -1,0 +1,10 @@
+
+=head1 INTRODUCTION
+
+This manual page documents the standard library of variables and
+functions available for use in KL-EL expressions.  For documentation
+on how to embed the KL-EL compiler and interpreter in an application,
+see I<klelapi(3)>.  For a tutorial on how to use the library, see
+I<kleltut(3)>.  For documentation on the expression language itself,
+see I<klellang(3)>.
+

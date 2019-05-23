@@ -1,0 +1,100 @@
+
+=head1 FUNCTIONS
+
+The following sub-sections describe the various arithmetic, string,
+and time functions exported by the standard library for general use in
+KL-EL expressions.
+
+=head2 ARITHMETIC FUNCTIONS
+
+=over 4
+
+=item I<int> B<abs>(I<int> x);
+
+Returns the absolute value of I<x>.
+
+=item I<int> B<entier>(I<real> x);
+
+Converts I<x> to an integer, rounding towards negative infinity.
+
+=item I<real> B<real>(I<int> x);
+
+Converts I<x> to a real number.
+
+=item I<int> B<max>(I<int> x, I<int> y);
+
+Returns the larger of I<x> and I<y>.
+
+=item I<int> B<min>(I<int> x, I<int> y);
+
+Returns the smaller of I<x> and I<y>.
+
+=item I<bool> B<odd>(I<int> x);
+
+Returns true if I<x> is odd.
+
+=back
+
+=head2 STRING FUNCTIONS
+
+=over 4
+
+=item I<int> B<cksum>(I<string> x);
+
+Computes a simple 16-bit checksum of I<x> using the original BSD
+checksum algorithm.
+
+=item I<string> B<chr>(I<int> x);
+
+Returns a string containing a single character whose character code is
+equal to I<x>.
+
+=item I<int> B<ord>(I<string> x);
+
+Returns the character code of the first character of I<x>.
+
+=item I<int> B<strlen>(I<string> x);
+
+Returns the length in bytes of I<x>.
+
+=item I<string> B<string_of_bool>(I<bool> x);
+
+Returns the string "true" if I<x> is true; otherwise, it returns
+"false".
+
+=item I<string> B<string_of_real>(I<real> x);
+
+Returns the string representation of I<x> in decimal notation.
+
+=item I<string> B<string_of_int>(I<int> x);
+
+Returns the string representation of I<x> in decimal notation.
+
+=item I<string> B<dec_of_int>(I<int> x);
+
+An alias for B<string_of_int>.
+
+=item I<string> B<hex_of_int>(I<int> x);
+
+Returns the string representation of I<x> in hexadecimal notation.
+
+=item I<string> B<oct_of_int>(I<int> x);
+
+Returns the string representation of I<x> in octal notation.
+
+=back
+
+=head2 TIME FUNCTIONS
+
+=over 4
+
+=item I<int> B<now>();
+
+Returns the number of seconds since the epoch.
+
+=item I<string> B<ctime>();
+
+Returns the current time as reported by the I<ctime(3)> function.
+
+=back
+

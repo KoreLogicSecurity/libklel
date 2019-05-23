@@ -1,0 +1,55 @@
+
+=head1 DESCRIPTION
+
+B<klel-expr> executes a single KL-EL expression (see klellang(3)) and
+displays its result.  User-provided expressions have full access to
+the variables and functions exported by KL-EL standard library (see
+klelstdlib(3)).
+
+=head2 Executing Value Expressions
+
+B<klel-expr> will execute a value expression (see klellang(3)) by
+calculating its value and displaying the result.
+
+=head2 Executing Guarded Commands
+
+B<klel-expr> will execute a guarded command (see klellang(3)) by
+testing the guard.  If the guard succeeds (i.e., evaluates to Boolean
+true), the command is executed using the specified interpreter, which
+can be one of B<echo> or B<system>.
+
+The B<echo> interpreter takes an arbitrary number of string arguments
+and echos them back to the display separated by whitespace.
+
+The B<system> interpereter takes a single string argument, passes that
+string unchanged to I<system(3)>, and displays the output (if any) of
+the executed command.
+
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 4
+
+=item B<{-e|--expression}> B<expression>
+
+Compile and execute the specified B<expression>.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<{-d|--debug-output}>
+
+Print additional debug output during program execution.
+
+=back
+
