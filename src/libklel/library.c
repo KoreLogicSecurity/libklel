@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: library.c,v 1.38 2012/11/15 23:47:23 klm Exp $
+ * $Id: library.c,v 1.39 2012/11/28 21:52:12 rking Exp $
  *
  ***********************************************************************
  *
@@ -60,6 +60,20 @@ static KLEL_STANDARD_LIBRARY_ENTRY gasKlelStdLib[] =
   /*-
    *********************************************************************
    *
+   * System Functions
+   *
+   *********************************************************************
+   */
+
+  {"abort",           KLEL_TYPE_BOOLEAN_FUNCTION1(KLEL_TYPE_STRING),                   0, 0, KlelStdLibAbort},
+  {"abort_bool",      KLEL_TYPE_BOOLEAN_FUNCTION1(KLEL_TYPE_STRING),                   0, 0, KlelStdLibAbort},
+  {"abort_int",       KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_STRING),                     0, 0, KlelStdLibAbort},
+  {"abort_real",      KLEL_TYPE_REAL_FUNCTION1(KLEL_TYPE_STRING),                      0, 0, KlelStdLibAbort},
+  {"abort_string",    KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_STRING),                    0, 0, KlelStdLibAbort},
+
+  /*-
+   *********************************************************************
+   *
    * String Functions
    *
    *********************************************************************
@@ -88,6 +102,21 @@ static KLEL_STANDARD_LIBRARY_ENTRY gasKlelStdLib[] =
   {"ctime",           KLEL_TYPE_STRING_FUNCTION0(),                                    0, 0, KlelStdLibCtime},
 };
 
+
+/*-
+ ***********************************************************************
+ *
+ * KlelStdLibAbs
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+KlelStdLibAbort(KLEL_VALUE **asArgs, void *pvContext)
+{
+  KlelReportError(pvContext, "aborted: %s", KlelValueToString(asArgs[0], pvContext), NULL);
+
+  return NULL;
+}
 
 /*-
  ***********************************************************************

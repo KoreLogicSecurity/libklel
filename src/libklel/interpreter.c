@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: interpreter.c,v 1.55 2012/11/15 23:47:23 klm Exp $
+ * $Id: interpreter.c,v 1.56 2012/11/28 21:20:11 rking Exp $
  *
  ***********************************************************************
  *
@@ -188,6 +188,7 @@ KlelDoCall(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
   KLEL_VALUE *psFunction                       = KlelInnerGetValueOfVar(psContext, psNode->acFragment, psContext->pvData);
   KLEL_VALUE *apsArguments[KLEL_MAX_FUNC_ARGS] = {0};
   KLEL_VALUE *psResult                         = NULL;
+  int         iIndex                           = 0;
 
   apsArguments[0]  = (psNode->apsChildren[KLEL_ARGUMENT1_INDEX]  != NULL) ? KlelInnerExecute(psNode->apsChildren[KLEL_ARGUMENT1_INDEX],  psContext) : NULL;
   apsArguments[1]  = (psNode->apsChildren[KLEL_ARGUMENT2_INDEX]  != NULL) ? KlelInnerExecute(psNode->apsChildren[KLEL_ARGUMENT2_INDEX],  psContext) : NULL;
@@ -205,6 +206,15 @@ KlelDoCall(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
 
   if (psFunction != NULL)
   {
+    for (iIndex = 0; iIndex < KLEL_GET_ARGUMENT_COUNT(psFunction->iType); iIndex++)
+    {
+      if (apsArguments[iIndex] == NULL)
+      {
+        KlelFreeResult(psFunction);
+        return NULL;
+      }
+    }
+
     psResult = psFunction->fFunction(apsArguments, (void *)psContext);
     KlelFreeResult(psFunction);
   }

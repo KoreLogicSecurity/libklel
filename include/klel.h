@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: klel.h,v 1.75 2012/11/26 19:18:39 klm Exp $
+ * $Id: klel.h,v 1.78 2012/11/30 18:50:14 klm Exp $
  *
  ***********************************************************************
  *
@@ -497,24 +497,21 @@ typedef struct _KLEL_CLOSURE
   struct _KLEL_CLOSURE *psNext;
 } KLEL_CLOSURE;
 
-typedef struct _KLEL_ERROR
-{
-  struct _KLEL_ERROR *psNext;
-  char               acMessage[KLEL_FLEXIBLE_ARRAY];
-} KLEL_ERROR;
-
 typedef struct _KLEL_CONTEXT
 {
   int                 bIsValid;
+
+  char                *pcName;
+  char                *pcInterpreter;
+  char                *pcProgram;
 
   int                 iTokenizationMode;
   const char          *pcInput;
 
   void                *pvData;
 
+  char                *pcError;
   int                 iSuppressErrors;
-  KLEL_ERROR          *psErrors;
-  KLEL_ERROR          *psNextError;
 
   KLEL_TYPE_CALLBACK  pfGetTypeOfVar;
   KLEL_VALUE_CALLBACK pfGetValueOfVar;
@@ -537,8 +534,8 @@ typedef struct _KLEL_CONTEXT
  */
 typedef struct _KLEL_COMMAND
 {
-  char         pcInterpreter[KLEL_MAX_NAME + 1];
-  char         pcProgram[KLEL_MAX_NAME + 1];
+  char         acInterpreter[KLEL_MAX_NAME + 1];
+  char         acProgram[KLEL_MAX_NAME + 1];
   size_t       szArgumentCount;
   char         *ppcArgumentVector[KLEL_MAX_FUNC_ARGS + 1];
   int          aiCodes[256];
@@ -653,7 +650,10 @@ void KlelFreeResult(KLEL_VALUE *psResult);
  *
  ***********************************************************************
  */
+void KlelClearError(KLEL_CONTEXT *psContext);
 void KlelReportError(KLEL_CONTEXT *psContext, const char *pcFormat, ...);
+void KlelReportMemoryAllocationError(KLEL_CONTEXT *psContext);
+const char *KlelGetError(KLEL_CONTEXT *psContext);
 const char *KlelGetFirstError(KLEL_CONTEXT *psContext);
 const char *KlelGetNextError(KLEL_CONTEXT *psContext);
 

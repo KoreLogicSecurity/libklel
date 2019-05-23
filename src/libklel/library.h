@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: library.h,v 1.16 2012/11/15 23:47:23 klm Exp $
+ * $Id: library.h,v 1.17 2012/11/28 21:52:12 rking Exp $
  *
  ***********************************************************************
  *
@@ -38,6 +38,7 @@ typedef struct _KLEL_STANDARD_LIBRARY_ENTRY
  *
  ***********************************************************************
  */
+KLEL_VALUE     *KlelStdLibAbort(KLEL_VALUE **asArgs, void *pvContext);
 KLEL_VALUE     *KlelStdLibAbs(KLEL_VALUE **asArgs, void *pvContext);
 KLEL_VALUE     *KlelStdLibChr(KLEL_VALUE **asArgs, void *pvContext);
 KLEL_VALUE     *KlelStdLibCksum(KLEL_VALUE **asArgs, void *pvContext);

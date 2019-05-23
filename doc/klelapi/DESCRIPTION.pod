@@ -129,8 +129,7 @@ Once an expression has been compiled, the result of B<KlelCompile>
 should be passed to B<KlelIsValid>, which returns nonzero if the
 expression compiled without errors or zero if the compilation had
 errors.  If the compilation had errors, the context is unusable except
-to retrieve error information using B<KlelGetFirstError> and
-B<KlelGetNextError>.
+to retrieve error information using B<KlelGetError>.
 
 =head3 Executing an Expression
 
@@ -196,12 +195,11 @@ should be freed using B<KlelFreeCommand>.
 
 =head3 Handling Errors
 
-If compilation or execution of an expression fails, one or more error
-messages will be present.  To traverse the list of errors, call
-B<KlelGetFirstError>, and then call B<KlelGetNextError> until it
-returns NULL.  Each of these calls returns a string describing errors,
-which may be printed or otherwise reported.  These strings are owned
-by the library and should not be freed by the programmer.
+If compilation or execution of an expression fails, an error message
+will be present.  To retrieve this error, call B<KlelGetError>.  This
+function returns a string describing errors, which may be printed or
+otherwise reported.  These strings are owned by the library and should
+not be freed by the programmer.
 
 To report an error during execution of a callback function, call
 B<KlelReportError>, which takes a context, a I<printf(3)>-style format
@@ -209,7 +207,7 @@ string, and a variable number of arguments.  This creates an error
 string that is added to the context.  The final argument must be NULL.
 Callbacks are free to report errors in any way the developer chooses,
 but those errors reported with B<KlelReportError> are only available
-via the B<KlelGetFirstError> and B<KlelGetNextError> functions.
+via the B<KlelGetError> function.
 
 =head3 Getting Information About a Compiled Expression
 
@@ -219,8 +217,8 @@ NULL before passing it to this function.
 
 B<KlelGetName> will return the name of a compiled expression, if the
 expression was named.  If the expression was not named, the library
-will generate a name based on the input expression.  The returned
-string should be freed once it's no longer needed.
+will generate a name based on the input expression.  Note that the
+returned string should not be freed.
 
 B<KlelGetTypeOfExpression> returns the type of a compiled expression
 (one of B<KLEL_TYPE_BOOLEAN>, B<KLEL_TYPE_INT64>, B<KLEL_TYPE_REAL>,
@@ -294,8 +292,9 @@ expression is a guarded command.
 
 The interpreter (the first argument to the special I<eval> function)
 and program (the second argument to the special I<eval> function) can
-be retrieved using B<KlelGetCommandInterpreter>.  This returns a
-string which must be freed once it's no longer needed.
+be retrieved using B<KlelGetCommandInterpreter> and
+B<KlelGetCommandProgram>, respectively.  These functions return a
+pointer to a string.  Note that these strings should not be freed.
 
 If the programmer wishes to evaluate the contents of the I<eval>
 function (presumably when the guard is true, but in theory at any

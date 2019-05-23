@@ -98,3 +98,28 @@ Returns the current time as reported by the I<ctime(3)> function.
 
 =back
 
+=head2 ERROR FUNCTIONS
+
+=over 4
+
+=item I<int> B<abort_bool>(I<string> message);
+
+Aborts execution (produces a runtime error, causing B<KlelExecute>
+to return NULL) with the given message pushed onto the error stack.
+Does not return, but purports to return a boolean, allowing it
+to be used in boolean expressions.
+
+=item I<int> B<abort_int>(I<string> message);
+
+As for B<abort_bool>, but purports to return an integer.
+
+=item I<int> B<abort_real>(I<string> message);
+
+As for B<abort_bool>, but purports to return an real number.
+
+=item I<int> B<abort_string>(I<string> message);
+
+As for B<abort_bool>, but purports to return an string.
+
+=back
+

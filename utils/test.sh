@@ -174,6 +174,12 @@ PassExitStatus()
   Pass  'if (true && false) then eval("echo", "hello")'            ''
   Fail  'if (entier(2.0)) then eval("echo", "hello")'
   Fail  'if (entier(2.0)) then 2'
+  Fail  'if (true) then eval("echo", "", (1 / 0))'
+  Fail  'if (true) then eval("echo", "", (1.0 / 0.0))'
+  Fail  'if (true) then eval("echo", "", abort("self-induced failure"))'
+  Fail  'if (true) then eval("system", "", (1 / 0))'
+  Fail  'if (true) then eval("system", "", (1.0 / 0.0))'
+  Fail  'if (true) then eval("system", "", abort("self-induced failure"))'
 
   #####################################################################
   #
@@ -276,6 +282,14 @@ PassExitStatus()
   Pass  'dec_of_int(512)'            '512'
   Pass  'hex_of_int(512)'            '200'
   Pass  'oct_of_int(512)'            '1000'
+  Fail  'abort("fail")'
+  Fail  'abort_bool("fail")'
+  Fail  'abort_int("fail")'
+  Fail  'abort_real("fail")'
+  Fail  'abort_string("fail")'
+  Fail  '1.0 / 0.0'
+  Fail  '1 / 0'
+  Fail  'string_of_int(max(1 / 0, 2))'
   Fail  'abs(?)'
   Fail  'abs(2.0)'
   Fail  'max(?)'

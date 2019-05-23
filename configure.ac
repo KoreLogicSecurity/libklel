@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.ac,v 1.34 2012/11/21 22:11:45 klm Exp $
+# $Id: configure.ac,v 1.35 2012/11/30 22:00:02 klm Exp $
 #
 ########################################################################
 
@@ -46,6 +46,8 @@ AC_DEFINE(KLEL_RELEASE_NUMBER, [libklel_release_number], [Define to the release 
 AC_DEFINE(KLEL_RELEASE_MAJOR, [libklel_major], [Define to the major release number of this package.])
 AC_DEFINE(KLEL_RELEASE_MINOR, [libklel_minor], [Define to the minor release number of this package.])
 AC_DEFINE(KLEL_RELEASE_PATCH, [libklel_patch], [Define to the patch release number of this package.])
+
+: ${CFLAGS="-O3"}
 
 dnl ####################################################################
 dnl #
@@ -164,6 +166,34 @@ else
   if test ${my_have_pcre} -eq 0 ; then
     AC_MSG_ERROR([Unable to locate libpcre.])
   fi
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to enable debugging support.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to enable debugging support])
+AC_ARG_ENABLE(debugging,
+  [  --enable-debugging      Enable debugging support (disabled by default)],
+  [
+    case `echo ${enableval} | tr "A-Z" "a-z"` in
+    yes)
+      enable_debugging="1"
+      ;;
+    *)
+      enable_debugging="0"
+      ;;
+    esac
+  ],
+  [ enable_debugging="0" ]
+)
+if test ${enable_debugging} -eq 1 ; then
+  AC_MSG_RESULT(yes)
+  CFLAGS="-g -DKLEL_DEBUG ${CFLAGS}"
+else
+  AC_MSG_RESULT(no)
 fi
 
 dnl ####################################################################

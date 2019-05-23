@@ -29,12 +29,12 @@ that the line numbers are for explanatory purposes.
    23     }
    24     else
    25     {
-   26       fprintf(stderr, "error: %s\n", KlelGetFirstError(psContext));
+   26       fprintf(stderr, "error: %s\n", KlelGetError(psContext));
    27     }
    28   }
    29   else
    30   {
-   31     fprintf(stderr, "error: %s\n", KlelGetFirstError(psContext));
+   31     fprintf(stderr, "error: %s\n", KlelGetError(psContext));
    32   }
    33   KlelFreeContext(psContext);
    34
@@ -81,14 +81,7 @@ free the result since we're done using it:
    22       free(pcMessage);
 
 Most of the rest of the example is simply error handling that is
-called if either compilation or execution fails.  Multiple errors can
-be generated in either phase, but in this example we're only
-interested in the most recent error returned by B<KlelGetFirstError>.
-We could elect to iteratively call B<KlelGetNextError> to get any
-remaining errors.  Doing so is often useful for gathering more
-information about the string of errors, if any, leading up to the most
-recent error.  Note that errors are stored in the B<KLEL_CONTEXT>
-structure on a LIFO basis.
+called if either compilation or execution fails.
 
 The final thing we do is free the context for the expression:
 

@@ -39,12 +39,27 @@
       NULL
     );
 
-    const char *KlelGetFirstError
+    void KlelReportMemoryAllocationError
+    (
+      KLEL_CONTEXT *psContext, 
+    );
+
+    void KlelClearError
+    (
+      KLEL_CONTEXT *psContext, 
+    );
+
+    const char *KlelGetError
     (
       KLEL_CONTEXT *psError
     );
 
-    const char *KlelGetNextError
+    const char *KlelGetFirstError (deprecated)
+    (
+      KLEL_CONTEXT *psError
+    );
+
+    const char *KlelGetNextError (deprecated)
     (
       KLEL_CONTEXT *psError
     );

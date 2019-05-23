@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: klel-expr.c,v 1.53 2012/11/21 22:11:45 klm Exp $
+ * $Id: klel-expr.c,v 1.57 2012/11/30 19:22:25 klm Exp $
  *
  ***********************************************************************
  *
@@ -80,7 +80,6 @@ Xyzzy(KLEL_VALUE **ppsArgs, void *pvContext)
 {
   return KlelCreateString(sizeof("Nothing happens.") - 1, "Nothing happens.");
 }
-
 
 /*-
  ***********************************************************************
@@ -195,7 +194,6 @@ int
 main(int iArgumentCount, char *ppcArgumentVector[])
 {
   size_t        szi          = 0;
-  const char   *pcError      = NULL;
   const char   *pcCommandStatus = "fail";
   const char   *pcExprType   = NULL;
   char         *pcExpression = NULL;
@@ -302,10 +300,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
    */
   if (!KlelIsValid(psContext))
   {
-    for (pcError = KlelGetFirstError(psContext); pcError != NULL; pcError = KlelGetNextError(psContext))
-    {
-      fprintf(stderr, "error: %s\n", pcError);
-    }
+    fprintf(stderr, "error: %s\n", KlelGetError(psContext));
     KlelFreeContext(psContext);
     return XER_Setup;
   }
@@ -358,7 +353,6 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       return XER_Out_Of_Memory;
     }
     printf("KlelExprName='%s'\n", pcExprName);
-    free(pcExprName);
   }
 
   /*-
@@ -398,10 +392,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
    */
   if (psResult == NULL)
   {
-    for (pcError = KlelGetFirstError(psContext); pcError != NULL; pcError = KlelGetNextError(psContext))
-    {
-      fprintf(stderr, "error: %s\n", pcError);
-    }
+    fprintf(stderr, "error: %s\n", KlelGetError(psContext));
     KlelFreeContext(psContext);
     return XER_Execute;
   }
@@ -472,12 +463,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       psCommand = KlelGetCommand(psContext);
       if (psCommand == NULL)
       {
-        pcError = KlelGetFirstError(psContext);
-        while (pcError != NULL)
-        {
-          fprintf(stderr, "error: %s\n", pcError);
-          pcError = KlelGetNextError(psContext);
-        }
+        fprintf(stderr, "error: %s\n", KlelGetError(psContext));
         KlelFreeResult(psResult);
         KlelFreeContext(psContext);
         return XER_GuardedCommand;
@@ -486,16 +472,16 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       {
         if (iDebugOutput)
         {
-          printf("KlelInterpreter='%s'\n", psCommand->pcInterpreter);
+          printf("KlelInterpreter='%s'\n", psCommand->acInterpreter);
         }
-        if (strcmp(psCommand->pcInterpreter, "system") == 0)
+        if (strcmp(psCommand->acInterpreter, "system") == 0)
         {
           if (iDebugOutput)
           {
-            printf("KlelCommand='%s'\n", psCommand->pcProgram);
+            printf("KlelCommand='%s'\n", psCommand->acProgram);
             printf("KlelCommandOutput=<<EndOfOutput\n");
           }
-          iResult = system(psCommand->pcProgram);
+          iResult = system(psCommand->acProgram);
           if (iResult == -1)
           {
             iCommandExitCode = iResult;
@@ -514,7 +500,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
             printf("EndOfOutput\n");
           }
         }
-        else if (strcmp(psCommand->pcInterpreter, "echo") == 0)
+        else if (strcmp(psCommand->acInterpreter, "echo") == 0)
         {
           if (iDebugOutput)
           {
@@ -537,7 +523,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
         }
         else
         {
-          fprintf(stderr, "error: unknown interpreter '%s'\n", psCommand->pcInterpreter);
+          fprintf(stderr, "error: unknown interpreter '%s'\n", psCommand->acInterpreter);
         }
         KlelFreeCommand(psCommand);
         if (KlelIsSuccessReturnCode(psContext, iCommandExitCode))

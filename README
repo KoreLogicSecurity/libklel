@@ -1,7 +1,7 @@
 
 REVISION
 
-  $Id: README,v 1.4 2012/04/25 04:07:29 klm Exp $
+  $Id: README,v 1.5 2013/02/09 06:48:23 klm Exp $
 
 OVERVIEW
 
@@ -21,13 +21,13 @@ OVERVIEW
 
   The KL-EL Project is hosted at SourceForge:
 
-    http://libklel.sourceforge.net
+    http://sourceforge.net/projects/libklel/
 
 DOCUMENTATION
 
   General documentation is located in the doc directory.  See the
   README.INSTALL file for instructions on how to build, test, and
-  install library.
+  install the library.
 
 LICENSE
 

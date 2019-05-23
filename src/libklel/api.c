@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: api.c,v 1.101 2012/11/20 20:11:23 rking Exp $
+ * $Id: api.c,v 1.104 2012/11/30 18:50:14 klm Exp $
  *
  ***********************************************************************
  *
@@ -12,6 +12,7 @@
 #include "all-includes.h"
 
 static char const *gpcContextAllocationError = "context allocation error";
+static char const *gpcMemoryAllocationError = "memory allocation error";
 static char        gcKlelQuoteChar        = KLEL_DEFAULT_QUOTE_CHAR;
 static char const *gpcKlelQuotedChars     = KLEL_DEFAULT_QUOTED_CHARS;
 
@@ -25,95 +26,261 @@ static char const *gpcKlelQuotedChars     = KLEL_DEFAULT_QUOTED_CHARS;
 KLEL_CONTEXT *
 KlelCompile(const char *pcInput, unsigned long ulFlags, const KLEL_TYPE_CALLBACK pfGetTypeOfVar, const KLEL_VALUE_CALLBACK pfGetValueOfVar, void *pvData)
 {
-  KLEL_CONTEXT *psContext  = calloc(1, sizeof(KLEL_CONTEXT));
+  KLEL_CONTEXT *psContext = NULL;
   KLEL_NODE    *psCodeNode = NULL;
-  size_t       szi         = 0;
+  KLEL_STRING  *psString = NULL;
+  KLEL_VALUE   *psValue = NULL;
+  char         *pcName = NULL;
+  char         *pcResult = NULL;
+  size_t        szIndex  = 0;
+  size_t        szLength = 0;
+  uint32_t      uiResult = 0;
 
+  /*-
+   *********************************************************************
+   *
+   * Conditionally set implied flags.
+   *
+   *********************************************************************
+   */
   if (ulFlags & KLEL_MUST_SPECIFY_RETURN_CODES)
   {
-    ulFlags |= KLEL_MUST_BE_GUARDED_COMMAND; /* The flag above implies this one. */
+    ulFlags |= KLEL_MUST_BE_GUARDED_COMMAND;
   }
 
-  if (psContext != NULL)
+  /*-
+   *********************************************************************
+   *
+   * Allocate a new context structure and tag it as not yet valid.
+   *
+   *********************************************************************
+   */
+  psContext = calloc(1, sizeof(KLEL_CONTEXT));
+  if (psContext == NULL)
   {
-    psContext->pcInput         = pcInput;
-    psContext->pfGetTypeOfVar  = pfGetTypeOfVar  != NULL ? pfGetTypeOfVar  : (KLEL_TYPE_CALLBACK)KlelGetTypeOfStdVar;
-    psContext->pfGetValueOfVar = pfGetValueOfVar != NULL ? pfGetValueOfVar : (KLEL_VALUE_CALLBACK)KlelGetValueOfStdVar;
-    psContext->pvData          = pvData;
-    psContext->psExpression    = KlelRoot(psContext);
-    psContext->aiCodes[0]      = 1; /* By default, exit code 0 is successful. */
-    psContext->bIsValid        = 0;
+    return NULL;
+  }
+  psContext->bIsValid = 0;
 
-    if (psContext->psExpression != NULL)
+  /*-
+   *********************************************************************
+   *
+   * Initialize context members that were provided by the caller.
+   *
+   *********************************************************************
+   */
+  psContext->pcInput = pcInput;
+  psContext->pfGetTypeOfVar = (pfGetTypeOfVar != NULL) ? pfGetTypeOfVar : (KLEL_TYPE_CALLBACK)KlelGetTypeOfStdVar;
+  psContext->pfGetValueOfVar = (pfGetValueOfVar != NULL) ? pfGetValueOfVar : (KLEL_VALUE_CALLBACK)KlelGetValueOfStdVar;
+  psContext->pvData = pvData;
+
+  /*-
+   *********************************************************************
+   *
+   * Parse the expression and verify that it returns a known type.
+   *
+   *********************************************************************
+   */
+  psContext->psExpression = KlelRoot(psContext);
+  if (psContext->psExpression == NULL)
+  {
+    return psContext;
+  }
+
+  psContext->iExpressionType = KlelTypeCheck(psContext->psExpression, psContext);
+  if (psContext->iExpressionType == KLEL_TYPE_UNKNOWN)
+  {
+    return psContext;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize the expression's name. If the caller specified a name,
+   * we simply copy it. Otherwise, we generate a name by calculating a
+   * "standard" BSD checksum over the string representation of the
+   * parsed expression.
+   *
+   *********************************************************************
+   */
+  pcName = calloc(KLEL_MAX_NAME + 1, 1);
+  if (pcName == NULL)
+  {
+    KlelReportMemoryAllocationError(psContext);
+    return psContext;
+  }
+  if (psContext->psExpression->apsChildren[KLEL_LABEL_INDEX] == NULL)
+  {
+    psString = KlelInnerStringOfExpression(psContext->psExpression, KLEL_EXPRESSION_PLUS_EVERYTHING);
+    if (psString == NULL)
     {
-      psContext->iExpressionType = KlelTypeCheck(psContext->psExpression, psContext);
-      if (psContext->iExpressionType != KLEL_TYPE_UNKNOWN)
+      KlelReportMemoryAllocationError(psContext);
+      return psContext;
+    }
+    szLength = strlen(psString->pcString);
+    for (szIndex = 0; szIndex < szLength; szIndex++)
+    {
+      uiResult  = (uiResult >> 1) + ((uiResult & 1) << 15);
+      uiResult += psString->pcString[szIndex];
+      uiResult &= 0xFFFF;
+    }
+    KlelStringFree(psString, 1);
+    snprintf(pcName, KLEL_MAX_NAME, "expr(%08" PRIx32 ")", uiResult);
+  }
+  else
+  {
+    strncpy(pcName, psContext->psExpression->apsChildren[KLEL_LABEL_INDEX]->acFragment, KLEL_MAX_NAME);
+  }
+  psContext->pcName = pcName;
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally initialize the interpreter (guarded commands).
+   *
+   *********************************************************************
+   */
+  if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_INTERPRETER_INDEX] != NULL)
+  {
+    psValue = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_INTERPRETER_INDEX], psContext);
+    if (psValue == NULL)
+    {
+      KlelReportMemoryAllocationError(psContext);
+      return psContext;
+    }
+    pcResult = KlelValueToString(psValue, &szLength);
+    if (pcResult == NULL)
+    {
+      KlelReportMemoryAllocationError(psContext);
+      return psContext;
+    }
+    psContext->pcInterpreter = pcResult;
+    KlelFreeResult(psValue);
+  }
+
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally initialize the program (guarded commands).
+   *
+   *********************************************************************
+   */
+  if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_COMMAND_INDEX] != NULL)
+  {
+    psValue = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_COMMAND_INDEX], psContext);
+    if (psValue == NULL)
+    {
+      KlelReportMemoryAllocationError(psContext);
+      return psContext;
+    }
+    pcResult = KlelValueToString(psValue, &szLength);
+    if (pcResult == NULL)
+    {
+      KlelReportMemoryAllocationError(psContext);
+      return psContext;
+    }
+    psContext->pcProgram = pcResult;
+    KlelFreeResult(psValue);
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * The default success exit code is zero (guarded commands). Thus,
+   * all remaining exit codes (i.e., [1-255]) indicate a failure by
+   * default.
+   *
+   *********************************************************************
+   */
+  psContext->aiCodes[0] = 1;
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally initialize success exit codes (guarded commands).
+   *
+   *********************************************************************
+   */
+  if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX] != NULL)
+  {
+    memset(psContext->aiCodes, 0, sizeof(psContext->aiCodes));
+    psCodeNode = psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX];
+    for (szIndex = 0; szIndex < 256 && psCodeNode != NULL; szIndex++)
+    {
+      KLEL_ASSERT(psCodeNode->iType == KLEL_NODE_INTEGER);
+      if (psCodeNode->llInteger > 255)
       {
-        if (ulFlags & KLEL_MUST_BE_NAMED && psContext->psExpression->apsChildren[KLEL_LABEL_INDEX] == NULL)
-        {
-          KlelReportError(psContext, "expression must be named when KLEL_MUST_BE_NAMED is set", NULL);
-          return psContext;
-        }
-
-        if ((ulFlags & KLEL_MUST_BE_GUARDED_COMMAND) && psContext->psExpression->iType != KLEL_NODE_GUARDED_COMMAND)
-        {
-          KlelReportError(psContext, "expression must be a guarded command when KLEL_MUST_BE_GUARDED_COMMAND is set", NULL);
-          return psContext;
-        }
-
-        if
-        (
-             (ulFlags & KLEL_MUST_SPECIFY_RETURN_CODES)
-          && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX] == NULL
-          && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX] == NULL
-        )
-        {
-          KlelReportError(psContext, "expression must specify return codes when KLEL_MUST_SPECIFY_RETURN_CODES is set", NULL);
-          return psContext;
-        }
-
-        if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX] != NULL)
-        {
-          memset(psContext->aiCodes, 0, sizeof(psContext->aiCodes));
-          psCodeNode = psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX];
-          for (szi = 0; szi < 256 && psCodeNode != NULL; szi++)
-          {
-            KLEL_ASSERT(psCodeNode->iType == KLEL_NODE_INTEGER);
-
-            if (psCodeNode->llInteger > 255)
-            {
-              KlelReportError(psContext, "return codes must be less than or equal to 255", NULL);
-              return psContext;
-            }
-
-            psContext->aiCodes[psCodeNode->llInteger] = 1;
-            psCodeNode = psCodeNode->apsChildren[0];
-          }
-        }
-
-        if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX] != NULL)
-        {
-          memset(psContext->aiCodes, 1, sizeof(psContext->aiCodes));
-          psCodeNode = psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX];
-          for (szi = 0; szi < 256 && psCodeNode != NULL; szi++)
-          {
-            KLEL_ASSERT(psCodeNode->iType == KLEL_NODE_INTEGER);
-
-            if (psCodeNode->llInteger > 255)
-            {
-              KlelReportError(psContext, "return codes must be less than or equal to 255", NULL);
-              return psContext;
-            }
-
-            psContext->aiCodes[psCodeNode->llInteger] = 0;
-            psCodeNode = psCodeNode->apsChildren[0];
-          }
-        }
-
-        psContext->bIsValid = 1;
+        KlelReportError(psContext, "return codes must be less than or equal to 255", NULL);
+        return psContext;
       }
+      psContext->aiCodes[psCodeNode->llInteger] = 1;
+      psCodeNode = psCodeNode->apsChildren[0];
     }
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally initialize failure exit codes (guarded commands).
+   *
+   *********************************************************************
+   */
+  if (psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX] != NULL)
+  {
+    memset(psContext->aiCodes, 1, sizeof(psContext->aiCodes));
+    psCodeNode = psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX];
+    for (szIndex = 0; szIndex < 256 && psCodeNode != NULL; szIndex++)
+    {
+      KLEL_ASSERT(psCodeNode->iType == KLEL_NODE_INTEGER);
+      if (psCodeNode->llInteger > 255)
+      {
+        KlelReportError(psContext, "return codes must be less than or equal to 255", NULL);
+        return psContext;
+      }
+      psContext->aiCodes[psCodeNode->llInteger] = 0;
+      psCodeNode = psCodeNode->apsChildren[0];
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Do some sanity checks.
+   *
+   *********************************************************************
+   */
+  if (ulFlags & KLEL_MUST_BE_NAMED && psContext->psExpression->apsChildren[KLEL_LABEL_INDEX] == NULL)
+  {
+    KlelReportError(psContext, "expression must be named when KLEL_MUST_BE_NAMED is set", NULL);
+    return psContext;
+  }
+
+  if ((ulFlags & KLEL_MUST_BE_GUARDED_COMMAND) && psContext->psExpression->iType != KLEL_NODE_GUARDED_COMMAND)
+  {
+    KlelReportError(psContext, "expression must be a guarded command when KLEL_MUST_BE_GUARDED_COMMAND is set", NULL);
+    return psContext;
+  }
+
+  if
+  (
+       (ulFlags & KLEL_MUST_SPECIFY_RETURN_CODES)
+    && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_PASS_INDEX] == NULL
+    && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_FAIL_INDEX] == NULL
+  )
+  {
+    KlelReportError(psContext, "expression must specify return codes when KLEL_MUST_SPECIFY_RETURN_CODES is set", NULL);
+    return psContext;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tag the context structure as valid.
+   *
+   *********************************************************************
+   */
+  psContext->bIsValid = 1;
 
   return psContext;
 }
@@ -136,6 +303,7 @@ KlelExecute(KLEL_CONTEXT *psContext)
 
   if (KlelIsValid(psContext))
   {
+    KlelClearError(psContext);
     psValue = KlelInnerExecute(psContext->psExpression, psContext);
   }
 
@@ -212,26 +380,9 @@ KlelGetChecksum(const KLEL_CONTEXT *psContext, unsigned long ulFlags)
 char *
 KlelGetName(const KLEL_CONTEXT *psContext)
 {
-  char *pcName = calloc(KLEL_MAX_NAME + 1, 1);
-
   KLEL_ASSERT(KlelIsValid(psContext));
 
-  if (pcName != NULL)
-  {
-    if (KlelIsValid(psContext))
-    {
-      if (psContext->psExpression->apsChildren[KLEL_LABEL_INDEX] != NULL)
-      {
-        strncpy(pcName, psContext->psExpression->apsChildren[KLEL_LABEL_INDEX]->acFragment, KLEL_MAX_NAME);
-      }
-      else
-      {
-        snprintf(pcName, KLEL_MAX_NAME, "expr(%08" PRIx32 ")", KlelGetChecksum(psContext, KLEL_EXPRESSION_PLUS_EVERYTHING));
-      }
-    }
-  }
-
-  return pcName;
+  return (KlelIsValid(psContext)) ? psContext->pcName : NULL;
 }
 
 
@@ -333,54 +484,21 @@ KlelIsGuardedCommand(const KLEL_CONTEXT *psContext)
 KLEL_COMMAND *
 KlelGetCommand(KLEL_CONTEXT *psContext)
 {
-  size_t       szi         = 0;
   KLEL_COMMAND *psCommand  = calloc(1, sizeof(KLEL_COMMAND));
   KLEL_VALUE   *psArgument = NULL;
   char         *pcString   = NULL;
+  size_t       szIndex     = 0;
   size_t       szLength    = 0;
 
   KLEL_ASSERT(KlelIsGuardedCommand(psContext));
 
   if (psCommand != NULL && KlelIsGuardedCommand(psContext))
   {
-    psArgument = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_INTERPRETER_INDEX], psContext);
-    if (psArgument == NULL)
+    strncpy(psCommand->acInterpreter, psContext->pcInterpreter, KLEL_MAX_NAME);
+    strncpy(psCommand->acProgram, psContext->pcProgram, KLEL_MAX_NAME);
+    for (szIndex = 0; szIndex < KLEL_MAX_FUNC_ARGS && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[szIndex] != NULL; szIndex++)
     {
-      free(psCommand);
-      return NULL;
-    }
-    pcString = KlelValueToString(psArgument, &szLength);
-    if (pcString == NULL)
-    {
-      free(psCommand);
-      KlelFreeResult(psArgument);
-      return NULL;
-    }
-    strncpy(psCommand->pcInterpreter, pcString, KLEL_MAX_NAME);
-    free(pcString);
-    KlelFreeResult(psArgument);
-
-    psArgument = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_COMMAND_INDEX], psContext);
-    if (psArgument == NULL)
-    {
-      free(psCommand);
-      return NULL;
-    }
-    pcString = KlelValueToString(psArgument, &szLength);
-    if (pcString == NULL)
-    {
-      free(psCommand);
-      KlelFreeResult(psArgument);
-      return NULL;
-    }
-    strncpy(psCommand->pcProgram, pcString, KLEL_MAX_NAME);
-    free(pcString);
-    KlelFreeResult(psArgument);
-
-    memcpy(psCommand->aiCodes, psContext->aiCodes, sizeof(psCommand->aiCodes));
-    for (szi = 0; szi < KLEL_MAX_FUNC_ARGS && psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[szi] != NULL; szi++)
-    {
-      psArgument = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[szi], psContext);
+      psArgument = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[szIndex], psContext);
       if (psArgument == NULL)
       {
         free(psCommand);
@@ -388,16 +506,15 @@ KlelGetCommand(KLEL_CONTEXT *psContext)
       }
       pcString = KlelValueToString(psArgument, &szLength);
       KlelFreeResult(psArgument);
-
       if (pcString == NULL)
       {
         free(psCommand);
         return NULL;
       }
-
       psCommand->szArgumentCount++;
-      psCommand->ppcArgumentVector[szi] = pcString;
+      psCommand->ppcArgumentVector[szIndex] = pcString;
     }
+    memcpy(psCommand->aiCodes, psContext->aiCodes, sizeof(psCommand->aiCodes));
   }
 
   return psCommand;
@@ -414,23 +531,9 @@ KlelGetCommand(KLEL_CONTEXT *psContext)
 char *
 KlelGetCommandInterpreter(KLEL_CONTEXT *psContext)
 {
-  char       *pcResult = NULL;
-  KLEL_VALUE *psValue  = NULL;
-  size_t     szLength  = 0;
-
   KLEL_ASSERT(KlelIsGuardedCommand(psContext));
 
-  if (KlelIsGuardedCommand(psContext))
-  {
-    psValue = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_INTERPRETER_INDEX], psContext);
-    if (psValue != NULL)
-    {
-      pcResult = KlelValueToString(psValue, &szLength);
-      KlelFreeResult(psValue);
-    }
-  }
-
-  return pcResult;
+  return (KlelIsGuardedCommand(psContext)) ? psContext->pcInterpreter : NULL;
 }
 
 
@@ -444,23 +547,9 @@ KlelGetCommandInterpreter(KLEL_CONTEXT *psContext)
 char *
 KlelGetCommandProgram(KLEL_CONTEXT *psContext)
 {
-  char       *pcResult = NULL;
-  KLEL_VALUE *psValue  = NULL;
-  size_t     szLength  = 0;
-
   KLEL_ASSERT(KlelIsGuardedCommand(psContext));
 
-  if (KlelIsGuardedCommand(psContext))
-  {
-    psValue = KlelInnerExecute(psContext->psExpression->apsChildren[KLEL_EXPRESSION_INDEX]->apsChildren[KLEL_COMMAND_INDEX], psContext);
-    if (psValue != NULL)
-    {
-      pcResult = KlelValueToString(psValue, &szLength);
-      KlelFreeResult(psValue);
-    }
-  }
-
-  return pcResult;
+  return (KlelIsGuardedCommand(psContext)) ? psContext->pcProgram : NULL;
 }
 
 
@@ -526,37 +615,38 @@ KlelExpressionToString(const KLEL_CONTEXT *psContext, unsigned long ulFlags)
 void
 KlelFreeContext(KLEL_CONTEXT *psContext)
 {
-  size_t     szi          = 0;
-  KLEL_ERROR *psError     = NULL;
-  KLEL_ERROR *psNextError = NULL;
+  size_t      szIndex = 0;
 
   if (psContext != NULL)
   {
+    if (psContext->pcName != NULL)
+    {
+      free(psContext->pcName);
+    }
+    if (psContext->pcInterpreter != NULL)
+    {
+      free(psContext->pcInterpreter);
+    }
+    if (psContext->pcProgram != NULL)
+    {
+      free(psContext->pcProgram);
+    }
     if (psContext->psExpression != NULL)
     {
       KlelFreeNode(psContext->psExpression);
     }
-
     if (psContext->psClosures != NULL)
     {
-      for (szi = 0; szi < psContext->iClosureCount; szi++)
+      for (szIndex = 0; szIndex < psContext->iClosureCount; szIndex++)
       {
-        if (psContext->psClosures[szi].psValue != NULL)
+        if (psContext->psClosures[szIndex].psValue != NULL)
         {
-          KlelFreeResult(psContext->psClosures[szi].psValue);
+          KlelFreeResult(psContext->psClosures[szIndex].psValue);
         }
       }
       free(psContext->psClosures);
     }
-
-    psError = psContext->psErrors;
-    while (psError != NULL)
-    {
-      psNextError = psError->psNext;
-      free(psError);
-      psError = psNextError;
-    }
-
+    KlelClearError(psContext);
     free(psContext);
   }
 }
@@ -585,6 +675,33 @@ KlelFreeCommand(KLEL_COMMAND *psCommand)
     }
 
     free(psCommand);
+  }
+}
+
+/*-
+ ***********************************************************************
+ *
+ * KlelClearError
+ *
+ ***********************************************************************
+ */
+void
+KlelClearError(KLEL_CONTEXT *psContext)
+{
+  KLEL_ASSERT(KlelIsValid(psContext));
+
+  if (KlelIsValid(psContext))
+  {
+    if
+    (
+         psContext->pcError != NULL
+      && psContext->pcError != gpcContextAllocationError
+      && psContext->pcError != gpcMemoryAllocationError
+    )
+    {
+      free(psContext->pcError);
+    }
+    psContext->pcError = NULL;
   }
 }
 
@@ -717,7 +834,7 @@ KlelSetQuoteChar(char cChar)
  ***********************************************************************
  */
 char *
-KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *szLength)
+KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *pszLength)
 {
   size_t  szi           = 0;
   size_t  szj           = 0;
@@ -730,20 +847,20 @@ KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *szLength)
   KLEL_ASSERT(psValue            != NULL);
   KLEL_ASSERT(gpcKlelQuotedChars != NULL);
   KLEL_ASSERT(gcKlelQuoteChar    != 0);
-  KLEL_ASSERT(szLength           != NULL);
+  KLEL_ASSERT(pszLength           != NULL);
 
-  if (psValue == NULL || gpcKlelQuotedChars == NULL || gcKlelQuoteChar == 0 || szLength == NULL)
+  if (psValue == NULL || gpcKlelQuotedChars == NULL || gcKlelQuoteChar == 0 || pszLength == NULL)
   {
     return NULL;
   }
 
   szQuotedChars = strlen(gpcKlelQuotedChars);
 
-  pcString = KlelValueToString(psValue, szLength);
+  pcString = KlelValueToString(psValue, pszLength);
   if (pcString != NULL)
   {
     /* XXX - This is incredibly inefficient. */
-    for (szi = 0; szi < *szLength; szi++)
+    for (szi = 0; szi < *pszLength; szi++)
     {
       for (szj = 0; szj < szQuotedChars; szj++)
       {
@@ -759,10 +876,10 @@ KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *szLength)
       return pcString;
     }
 
-    pcBuffer = calloc(*szLength + szCount + 1, sizeof(char));
+    pcBuffer = calloc(*pszLength + szCount + 1, sizeof(char));
     if (pcBuffer != NULL)
     {
-      for (szi = 0; szi < *szLength; szi++)
+      for (szi = 0; szi < *pszLength; szi++)
       {
         for (szj = 0; szj < szQuotedChars; szj++)
         {
@@ -777,7 +894,7 @@ KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *szLength)
         szk++;
       }
 
-      *szLength = *szLength + szCount;
+      *pszLength = *pszLength + szCount;
     }
 
     free(pcString);
@@ -795,12 +912,12 @@ KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *szLength)
  ***********************************************************************
  */
 char *
-KlelValueToString(const KLEL_VALUE *psValue, size_t *szLength)
+KlelValueToString(const KLEL_VALUE *psValue, size_t *pszLength)
 {
   char *pcBuffer = calloc(1, KLEL_MAX_NAME + 1);
 
   KLEL_ASSERT(psValue  != NULL);
-  KLEL_ASSERT(szLength != NULL);
+  KLEL_ASSERT(pszLength != NULL);
 
   if (psValue != NULL && pcBuffer != NULL)
   {
@@ -808,17 +925,17 @@ KlelValueToString(const KLEL_VALUE *psValue, size_t *szLength)
     {
       case KLEL_EXPR_BOOLEAN:
         snprintf(pcBuffer, KLEL_MAX_NAME, "%s", psValue->bBoolean ? "true" : "false");
-        *szLength = strlen(pcBuffer);
+        *pszLength = strlen(pcBuffer);
         break;
 
       case KLEL_EXPR_REAL:
         snprintf(pcBuffer, KLEL_MAX_NAME, "%g", psValue->dReal);
-        *szLength = strlen(pcBuffer);
+        *pszLength = strlen(pcBuffer);
         break;
 
       case KLEL_EXPR_INTEGER:
         snprintf(pcBuffer, KLEL_MAX_NAME, "%" PRId64, psValue->llInteger);
-        *szLength = strlen(pcBuffer);
+        *pszLength = strlen(pcBuffer);
         break;
 
       case KLEL_EXPR_STRING:
@@ -827,7 +944,7 @@ KlelValueToString(const KLEL_VALUE *psValue, size_t *szLength)
         if (pcBuffer != NULL)
         {
           memcpy(pcBuffer, psValue->acString, psValue->szLength);
-          *szLength = psValue->szLength;
+          *pszLength = psValue->szLength;
         }
         break;
 
@@ -903,9 +1020,9 @@ KlelFreeResult(KLEL_VALUE *psResult)
 void
 KlelReportError(KLEL_CONTEXT *psContext, const char *pcFormat, ...)
 {
+  char       *pcError  = NULL;
   char       *pcString = NULL;
   int        iLength   = 0;
-  KLEL_ERROR *psError  = NULL;
   va_list    pVaList;
 
   KLEL_ASSERT(psContext != NULL);
@@ -920,14 +1037,13 @@ KlelReportError(KLEL_CONTEXT *psContext, const char *pcFormat, ...)
     }
     iLength++; /* Add one for the terminating NULL byte. */
     va_end(pVaList);
-    psError = (KLEL_ERROR *) calloc(1, (sizeof(KLEL_ERROR) + iLength));
-    if (psError != NULL)
+    pcError = (char *) realloc(psContext->pcError, iLength + 1);
+    if (pcError != NULL)
     {
       va_start(pVaList, pcFormat);
-      vsnprintf(psError->acMessage, iLength, pcFormat, pVaList);
+      vsnprintf(pcError, iLength, pcFormat, pVaList);
       va_end(pVaList);
-      psError->psNext = psContext->psErrors;
-      psContext->psErrors = psError;
+      psContext->pcError = pcError;
     }
   }
 }
@@ -936,44 +1052,62 @@ KlelReportError(KLEL_CONTEXT *psContext, const char *pcFormat, ...)
 /*-
  ***********************************************************************
  *
- * KlelGetFirstError
+ * KlelReportMemoryAllocationError
  *
  ***********************************************************************
  */
-const char *
-KlelGetFirstError(KLEL_CONTEXT *psContext)
+void
+KlelReportMemoryAllocationError(KLEL_CONTEXT *psContext)
 {
-  const char *pcResult = (psContext == NULL) ? gpcContextAllocationError : NULL;
+  KLEL_ASSERT(psContext != NULL);
 
-  if (psContext != NULL && psContext->psErrors != NULL)
+  if (psContext != NULL)
   {
-    psContext->psNextError = psContext->psErrors->psNext;
-    pcResult = psContext->psErrors->acMessage;
+    KlelClearError(psContext);
+    psContext->pcError = gpcMemoryAllocationError;
   }
-
-  return pcResult;
 }
 
 
 /*-
  ***********************************************************************
  *
- * KlelGetNextError
+ * KlelGetError
+ *
+ ***********************************************************************
+ */
+const char *
+KlelGetError(KLEL_CONTEXT *psContext)
+{
+  return (psContext == NULL) ? gpcContextAllocationError : psContext->pcError;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetFirstError (Note that this is legacy function.)
+ *
+ ***********************************************************************
+ */
+const char *
+KlelGetFirstError(KLEL_CONTEXT *psContext)
+{
+  return KlelGetError(psContext);
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetNextError (Note that this is legacy function.)
  *
  ***********************************************************************
  */
 const char *
 KlelGetNextError(KLEL_CONTEXT *psContext)
 {
-  const char *pcResult = (psContext == NULL) ? gpcContextAllocationError : NULL;
-
-  if (psContext != NULL && psContext->psNextError != NULL)
-  {
-    pcResult = psContext->psNextError->acMessage;
-    psContext->psNextError = psContext->psNextError->psNext;
-  }
-
-  return pcResult;
+  return NULL;
 }
 
 
