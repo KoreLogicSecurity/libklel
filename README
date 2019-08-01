@@ -24,7 +24,7 @@ Table of Contents
 
     https://git.korelogic.com/libklel.git
     https://github.com/KoreLogicSecurity/libklel
-    https://sourceforge.net/projects/libklel/
+    https://sourceforge.net/projects/libklel
 
 2 Licensing
 
@@ -103,9 +103,9 @@ Table of Contents
   |                            |                |                             /     |
   |                            *                R 1.1.0    feature branch -->|   +--S 2.0.0.ds2
   |                                             |                             \ /   |
- \|/                                            *                              +----S ...
-  Y                                                                           /     |
-                                                                             |      S 2.0.0.{dsN,rc0}
+ \|/                                            R 1.2.0                        +----S ...
+  Y                                             |                             /     |
+                                                *                            |      S 2.0.0.{dsN,rc0}
   T                                                                          |      |
   I                                                                          |      S 2.0.0.rc1
   M                                                        feature branch -->|      |
