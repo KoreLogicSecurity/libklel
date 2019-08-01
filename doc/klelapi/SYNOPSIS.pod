@@ -226,17 +226,37 @@
 
 =head2 Obtaining Library Information
 
-    int KlelGetVersionCurrent
+    int KlelGetVersionCurrent (deprecated)
     (
       void
     );
 
-    int KlelGetVersionRevision
+    int KlelGetVersionRevision (deprecated)
     (
       void
     );
 
-    int KlelGetVersionAge
+    int KlelGetVersionAge (deprecated)
+    (
+      void
+    );
+
+    int KlelGetLibraryCurrent
+    (
+      void
+    );
+
+    int KlelGetLibraryRevision
+    (
+      void
+    );
+
+    int KlelGetLibraryAge
+    (
+      void
+    );
+
+    const char *KlelGetLibraryVersion
     (
       void
     );

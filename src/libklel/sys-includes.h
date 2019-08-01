@@ -1,18 +1,24 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.7 2012/11/14 02:43:14 klm Exp $
+ * $Id: sys-includes.h,v 1.10 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
 #ifndef _SYS_INCLUDES_H_INCLUDED
 #define _SYS_INCLUDES_H_INCLUDED
 
-#define _BSD_SOURCE /* For v?snprintf */
+#define _DEFAULT_SOURCE /* For v?snprintf */
 
 #include <assert.h>
 #include <ctype.h>

@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: interpreter.c,v 1.56 2012/11/28 21:20:11 rking Exp $
+ * $Id: interpreter.c,v 1.60 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -97,9 +103,34 @@ KlelInnerExecute(KLEL_NODE *psRoot, KLEL_CONTEXT *psContext)
 KLEL_SIMPLE_UNARY_OPERATION(KlelDoBitwiseNot, KlelCreateInteger(~(psLeft->bBoolean)));
 KLEL_SIMPLE_UNARY_OPERATION(KlelDoBooleanNot, KlelCreateBoolean(!(psLeft->bBoolean)));
 KLEL_SIMPLE_UNARY_OPERATION(KlelDoNegate,     psLeft->iType == KLEL_TYPE_INT64 ? KlelCreateInteger(-(psLeft->llInteger)) : KlelCreateReal(-(psLeft->dReal)));
-KLEL_SIMPLE_VALUE_OPERATION(KlelDoFragment,   KlelCreateString(psLeft->szLength, psLeft->acFragment));
 KLEL_SIMPLE_VALUE_OPERATION(KlelDoInteger,    KlelCreateInteger(psLeft->llInteger));
 KLEL_SIMPLE_VALUE_OPERATION(KlelDoReal,       KlelCreateReal(psLeft->dReal));
+
+KLEL_VALUE *
+KlelDoFragment(KLEL_NODE *psLeft, KLEL_CONTEXT *psContext)
+{
+  KLEL_VALUE *psResult = NULL;
+  KLEL_ASSERT(psLeft    != NULL);
+  KLEL_ASSERT(psContext != NULL);
+  if (psLeft == NULL)
+  {
+    return NULL;
+  }
+
+  psResult = calloc(1, sizeof(KLEL_VALUE) + psLeft->szLength + 1);
+  if (psResult == NULL)
+  {
+    return NULL;
+  }
+  psResult->iType = KLEL_EXPR_STRING;
+  psResult->szLength = psLeft->szLength;
+  psResult->psString = psLeft->psFragment;
+  if (psResult->psString->iType != KLEL_STRING_NODE_EMPTY)
+  {
+    psResult->psString->iRefCount++;
+  }
+  return psResult;
+}
 
 
 /*-
@@ -185,10 +216,15 @@ KLEL_SIMPLE_BINARY_OPERATION(KlelDoSubtract,   (psLeft->iType == KLEL_TYPE_INT64
 KLEL_VALUE *
 KlelDoCall(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
 {
-  KLEL_VALUE *psFunction                       = KlelInnerGetValueOfVar(psContext, psNode->acFragment, psContext->pvData);
+  KLEL_VALUE *psFunction                       = NULL;
   KLEL_VALUE *apsArguments[KLEL_MAX_FUNC_ARGS] = {0};
   KLEL_VALUE *psResult                         = NULL;
+  char       *pcTemp                           = NULL;
   int         iIndex                           = 0;
+
+  pcTemp = SteelStringToCString(psNode->psFragment);
+  psFunction = KlelInnerGetValueOfVar(psContext, pcTemp, psContext->pvData);
+  free(pcTemp);
 
   apsArguments[0]  = (psNode->apsChildren[KLEL_ARGUMENT1_INDEX]  != NULL) ? KlelInnerExecute(psNode->apsChildren[KLEL_ARGUMENT1_INDEX],  psContext) : NULL;
   apsArguments[1]  = (psNode->apsChildren[KLEL_ARGUMENT2_INDEX]  != NULL) ? KlelInnerExecute(psNode->apsChildren[KLEL_ARGUMENT2_INDEX],  psContext) : NULL;
@@ -212,6 +248,16 @@ KlelDoCall(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
       {
         KlelFreeResult(psFunction);
         return NULL;
+      }
+
+      if (apsArguments[iIndex]->iType == KLEL_TYPE_STRING && apsArguments[iIndex]->psString != NULL)
+      {
+        pcTemp = SteelStringToCString(apsArguments[iIndex]->psString);
+        if (pcTemp != NULL)
+        {
+          strncpy((apsArguments[iIndex])->acString, pcTemp, apsArguments[iIndex]->szLength);
+          free(pcTemp);
+        }
       }
     }
 
@@ -250,8 +296,8 @@ KlelDoConcat(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
 {
   KLEL_VALUE *psLeft   = KlelInnerExecute(psNode->apsChildren[KLEL_OPERAND1_INDEX], psContext);
   KLEL_VALUE *psRight  = KlelInnerExecute(psNode->apsChildren[KLEL_OPERAND2_INDEX], psContext);
-  char       *pcString = NULL;
   KLEL_VALUE *psResult = NULL;
+  KLEL_STRING_NODE *psTempString = NULL;
 
   if (psLeft == NULL || psRight == NULL)
   {
@@ -260,21 +306,25 @@ KlelDoConcat(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
     return NULL;
   }
 
-  pcString = calloc(1, sizeof(KLEL_VALUE) + psLeft->szLength + psRight->szLength + 1);
-  if (pcString == NULL)
+  psTempString = SteelConcat(psLeft->psString, psRight->psString);
+
+  if (psTempString != NULL)
   {
-    KlelFreeResult(psLeft);
-    KlelFreeResult(psRight);
-    return NULL;
+    psResult = calloc(1, sizeof(KLEL_VALUE) + psTempString->szLength + 1);
+    if (psResult != NULL)
+    {
+      psResult->iType = KLEL_EXPR_STRING;
+      psResult->psString = psTempString;
+      psResult->szLength = psTempString->szLength;
+    }
+    else
+    {
+      SteelFreeString(psTempString);
+    }
   }
 
-  memcpy(pcString, psLeft->acString, psLeft->szLength);
-  memcpy(pcString + psLeft->szLength, psRight->acString, psRight->szLength);
-
-  psResult = KlelCreateString(psLeft->szLength + psRight->szLength, pcString);
   KlelFreeResult(psLeft);
   KlelFreeResult(psRight);
-  free(pcString);
 
   return psResult;
 }
@@ -317,9 +367,15 @@ KlelDoConditional(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
 KLEL_VALUE *
 KlelDoDesignator(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
 {
+  char *pcTemp = NULL;
+  KLEL_VALUE *psTempVal = NULL;
+
   if (psNode->iClosure < 0)
   {
-    return KlelInnerGetValueOfVar(psContext, psNode->acFragment, psContext->pvData);
+    pcTemp = SteelStringToCString(psNode->psFragment);
+    psTempVal = KlelInnerGetValueOfVar(psContext, pcTemp, psContext->pvData);
+    free(pcTemp);
+    return psTempVal;
   }
 
   switch (psContext->psClosures[psNode->iClosure].iType)
@@ -334,7 +390,14 @@ KlelDoDesignator(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
       return KlelCreateReal(psContext->psClosures[psNode->iClosure].psValue->dReal);
 
     case KLEL_TYPE_STRING:
-      return KlelCreateString(psContext->psClosures[psNode->iClosure].psValue->szLength, psContext->psClosures[psNode->iClosure].psValue->acString);
+      pcTemp = SteelStringToCString(psContext->psClosures[psNode->iClosure].psValue->psString);
+      psTempVal = KlelCreateString(psContext->psClosures[psNode->iClosure].psValue->szLength, pcTemp);
+      if (pcTemp != NULL)
+      {
+        free(pcTemp);
+      }
+      return psTempVal;
+
 
     default:
       KLEL_ASSERT(0);
@@ -449,7 +512,7 @@ KlelDoLike(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
     return NULL;
   }
 
-  psExpression = pcre_compile(psRegex->acString, 0, &pcError, &iOffset, NULL); /* FIXME - We should cache this for constant strings. */
+  psExpression = pcre_compile(SteelStringToCString(psRegex->psString), 0, &pcError, &iOffset, NULL); /* FIXME - We should cache this for constant strings. */
   if (psExpression == NULL)
   {
     KlelReportError(psContext, "regular expression failed: %s", pcError, NULL);
@@ -458,7 +521,7 @@ KlelDoLike(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
     return NULL;
   }
 
-  iCount = pcre_exec(psExpression, NULL, psString->acString, psString->szLength, 0, 0, iMatches, 2);
+  iCount = pcre_exec(psExpression, NULL, SteelStringToCString(psString->psString), psString->szLength, 0, 0, iMatches, 2);
 
   pcre_free(psExpression);
   KlelFreeResult(psString);

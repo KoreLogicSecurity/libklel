@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: typecheck.c,v 1.47 2012/11/28 21:23:43 rking Exp $
+ * $Id: typecheck.c,v 1.51 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -450,7 +456,7 @@ KlelTypeCheckLike(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
     || KlelTypeCheck(psNode->apsChildren[KLEL_OPERAND2_INDEX], psContext) != KLEL_TYPE_STRING
   )
   {
-    KlelReportError(psContext, "'%s' is only defined for string operands", psNode->iType == KLEL_NODE_TILDE ? "=~" : "!~", NULL);
+    KlelReportError(psContext, "'%s' is only defined for string operands", psNode->iType == KLEL_NODE_LIKE ? "=~" : "!~", NULL);
     return KLEL_TYPE_UNKNOWN;
   }
 
@@ -474,7 +480,7 @@ KlelTypeCheckLike(KLEL_NODE *psNode, KLEL_CONTEXT *psContext)
       return KLEL_TYPE_UNKNOWN;
     }
 
-    psExpression = pcre_compile(psValue->acString, 0, &pcError, &iOffset, NULL);
+    psExpression = pcre_compile(SteelStringToCString(psValue->psString), 0, &pcError, &iOffset, NULL);
     KlelFreeResult(psValue);
     if (psExpression == NULL)
     {

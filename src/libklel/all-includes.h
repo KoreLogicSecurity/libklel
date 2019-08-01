@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.5 2012/04/26 00:53:31 klm Exp $
+ * $Id: all-includes.h,v 1.7 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */

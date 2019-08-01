@@ -1,7 +1,7 @@
 
 REVISION
 
-  $Id: README.INSTALL,v 1.4 2012/11/13 01:03:46 klm Exp $
+  $Id: README.INSTALL,v 1.5 2019/08/01 20:33:58 klm Exp $
 
 OVERVIEW
 
@@ -17,11 +17,11 @@ OVERVIEW
   its kind, KL-EL is statically and strongly typed, which helps ensure
   that expressions are valid before they are executed.  The embedding
   API is designed to be easy to use, and the library itself is
-  designed to be very small.
+  designed to be very small.  KL-EL is available from these locations:
 
-  The KL-EL Project is hosted at SourceForge:
-
-    http://libklel.sourceforge.net
+    https://git.korelogic.com/libklel.git
+    https://github.com/KoreLogicSecurity/libklel
+    https://sourceforge.net/projects/libklel
 
 REQUIREMENTS
 

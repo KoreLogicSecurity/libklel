@@ -1,9 +1,12 @@
 
-REVISION
+Table of Contents
 
-  $Id: README,v 1.5 2013/02/09 06:48:23 klm Exp $
+  Section 1 .................... Overview
+  Section 2 .................... Licensing
+  Section 3 .................... Versions
+  Section 4 .................... Branches
 
-OVERVIEW
+1 Overview
 
   The KoreLogic Expression Language Library is a C library that
   provides a simple expression language that can be embedded in other
@@ -17,20 +20,151 @@ OVERVIEW
   its kind, KL-EL is statically and strongly typed, which helps ensure
   that expressions are valid before they are executed.  The embedding
   API is designed to be easy to use, and the library itself is
-  designed to be very small.
+  designed to be very small.  KL-EL is available from these locations:
 
-  The KL-EL Project is hosted at SourceForge:
+    https://git.korelogic.com/libklel.git
+    https://github.com/KoreLogicSecurity/libklel
+    https://sourceforge.net/projects/libklel
 
-    http://sourceforge.net/projects/libklel/
+2 Licensing
 
-DOCUMENTATION
+  This project is governed by multiple open-source licences. The
+  exact terms and conditions under which software in this project
+  are released are set forth in README.LICENSE.
 
-  General documentation is located in the doc directory.  See the
-  README.INSTALL file for instructions on how to build, test, and
-  install the library.
+3 Versions
 
-LICENSE
+  This project utilizes a version numbering scheme that allocates
+  4 bits to the major number, 8 bits to the minor number, 8 bits
+  to the patch number, 2 bits to the state number, and 10 bits to
+  the build number. The following diagram depicts the scheme.
 
-  The terms and conditions under which this software is released are
-  set forth in README.LICENSE.
+    +----+--------+--------+--+----------+
+    |3322|22222222|11111111|11|          |
+    |1098|76543210|98765432|10|9876543210|
+    |----+--------+--------|--|----------+
+    |MMMM|mmmmmmmm|pppppppp|ss|bbbbbbbbbb|
+    +----+--------+--------|--+----------+
+     ^^^^ ^^^^^^^^ ^^^^^^^^ ^^ ^^^^^^^^^^
+        |        |       |   |          |
+        |        |       |   |          +-----> b - build (0...1023)
+        |        |       |   +----------------> s - state (0......3)
+        |        |       +--------------------> p - patch (0....255)
+        |        +----------------------------> m - minor (0....255)
+        +-------------------------------------> M - major (0.....15)
+
+  State Numbers:
+
+    00 = ds --> Development Snapshot
+    01 = rc --> Release Candidate
+    10 = sr --> Standard Release
+    11 = xs --> eXtended Snapshot
+
+  Below is an example mapping of a version number to a version
+  string.  It takes the version number 0x40100003, and converts
+  it to:
+
+    0100 00000001 00000000 00 0000000011
+    ^^^^ ^^^^^^^^ ^^^^^^^^ ^^ ^^^^^^^^^^
+       |        |       |   |          |
+       |        |       |   |          +-----> b - build = 3
+       |        |       |   +----------------> s - state = ds
+       |        |       +--------------------> p - patch = 0
+       |        +----------------------------> m - minor = 1
+       +-------------------------------------> M - major = 4
+
+   When the individual components are combined together, the
+   resulting version string becomes 4.1.0.ds3.
+
+4 Branches
+
+  This project is mastered in four branches: master, 0.X, 1.X,
+  and 2.X.  Currently, there are no plans for development on the
+  master, 0.X, and 1.X branches.  The master branch exists due to
+  the way that git works; the 0.X and 1.X branches exist to hold
+  snapshots of legacy releases; and the 2.X branch exists to track
+  future development activities.
+
+  Below is a diagram that illustrates how the code repository may
+  take shape over time.  Note that snapshot tags are tightly coupled
+  to the project's version numbering scheme (documented above).
+  These tags are used to designate official branch points and stable
+  locations in the codebase.  The standard snapshot designator is
+  'S', but 'R' is used to indicate a release snapshot.
+
+           master             0.X              1.X                                 2.X
+             +-----------------+----------------+-----------------------------------+
+             |                 |                |                                   |
+      +------+-------+  +------+------+  +------+------+                     +------+------+
+      | No Code Here |  | Legacy Code |  | Legacy Code |                     | Future Code |
+      +------+-------+  +------+------+  +------+------+                     +------+------+
+             |                 |                |                                   |
+             *                 R 0.6.0          R 1.0.0                        +----S 2.0.0.ds1
+  |                            |                |                             /     |
+  |                            *                R 1.1.0    feature branch -->|   +--S 2.0.0.ds2
+  |                                             |                             \ /   |
+ \|/                                            R 1.2.0                        +----S ...
+  Y                                             |                             /     |
+                                                *                            |      S 2.0.0.{dsN,rc0}
+  T                                                                          |      |
+  I                                                                          |      S 2.0.0.rc1
+  M                                                        feature branch -->|      |
+  E                                                                          |      S 2.0.0.rc2
+                                                                             |      |
+  |                                                                          |      S ...
+  |                                                                          |      |
+  |                                           2.0.X branch --> +-------------+------R 2.0.0.{rcN,sr0,xs0} / 2.1.0.ds0
+ \|/                                                          /              |      |
+  Y                                     alt 2.0.X branch --> /.- - - - - - - + - - -S 2.0.0.{sr1,xs0} / 2.1.0.ds0
+                                                            /    |            \     |
+                                                           /      \            +----S 2.0.0.xs1
+                                                          +        `- alternate     |
+                                                          |                         |
+                                                          S 2.0.1.ds1               |
+                                                          |                         |
+                                                          S 2.0.1.ds2               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          S 2.0.1.{dsN,rc0}         |
+                                                          |                         |
+                                                          S 2.0.1.rc1               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          R 2.0.1.{rcN,sr0} / ds0   |
+                                                          |\                        |
+                                                          | \      alt merge -->    |
+                                                          |  \`+- - - - - - - - - ->S 2.0.0.xs2
+                                                          |   \                     |
+                                                          |    \                    S ...
+                                                          |     \                   |
+                                                          |      \                  S 2.0.0.xsN
+                                                          |       \    merge -->    |
+                                                          |        `+-------------->S 2.1.0.ds1
+                                                          |                         |
+                                                          S 2.0.2.ds1               |
+                                                          |                         |
+                                                          S 2.0.2.ds2               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          S 2.0.2.{dsN,rc0}         |
+                                                          |                         |
+                                                          S 2.0.2.rc1               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          R 2.0.2.{rcN,sr0} / ds0   |
+                                                          |\                        |
+                                                          * \                       |
+                                                             \                      |
+                                                              \                     |
+                                                               \                    |
+                                                                \                   |
+                                                                 \                  |
+                                                                  \    merge -->    |
+                                                                   `+-------------->S 2.1.0.ds2
+                                                                                    |
+                                                                                    *
 

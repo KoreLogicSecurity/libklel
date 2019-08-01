@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: klel-expr.c,v 1.57 2012/11/30 19:22:25 klm Exp $
+ * $Id: klel-expr.c,v 1.64 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -16,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
@@ -176,7 +183,7 @@ void
 Usage(void)
 {
   fprintf(stderr, "\n");
-  fprintf(stderr, "Usage: %s [{-d|--debug-output}] {-e|--expression} <expression>\n", PROGRAM_NAME);
+  fprintf(stderr, "Usage: %s [{-b|--benchmark} count] [{-d|--debug-output}] {-e|--expression} <expression>\n", PROGRAM_NAME);
   fprintf(stderr, "       %s {-v|--version}\n", PROGRAM_NAME);
   fprintf(stderr, "\n");
   exit(XER_Usage);
@@ -198,15 +205,28 @@ main(int iArgumentCount, char *ppcArgumentVector[])
   const char   *pcExprType   = NULL;
   char         *pcExpression = NULL;
   char         *pcExprName   = NULL;
+  char         *pcInvalidChar = NULL;
   KLEL_COMMAND *psCommand    = NULL;
   KLEL_CONTEXT *psContext    = NULL;
   KLEL_VALUE   *psResult     = NULL;
   size_t        szLength     = 0;
   char         *pcString     = NULL;
   char         *pcValue      = NULL;
+  double        dFirstTime   = 0;
+  double        dFinalTime   = 0;
+  double        dDeltaTime   = 0;
+  double        dMaxTime     = 0;
+  double        dMinTime     = 0;
+  double        dTotTime     = 0;
   int           iDebugOutput = 0;
+  int           iBenchmark   = 0;
   int           iCommandExitCode = 0;
+  int           iError       = 0;
   int           iResult      = 0;
+  uint32_t      uiLoopIterations = 0;
+  uint32_t      uiIterations = 1;
+  struct timeval sFirstTime  = {0,0};
+  struct timeval sFinalTime  = {0,0};
 
   /*-
    *********************************************************************
@@ -225,7 +245,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
    *
    *********************************************************************
    */
-  if (iArgumentCount < 2 || iArgumentCount > 4)
+  if (iArgumentCount < 2 || iArgumentCount > 6)
   {
     Usage();
   }
@@ -243,7 +263,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     }
   }
 
-  if (iArgumentCount == 3)
+  else if (iArgumentCount == 3)
   {
     if ((strcmp(ppcArgumentVector[1], "-e") == 0 || strcmp(ppcArgumentVector[1], "--expression") == 0))
     {
@@ -255,7 +275,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     }
   }
 
-  if (iArgumentCount == 4)
+  else if (iArgumentCount == 4)
   {
     if
     (
@@ -265,6 +285,62 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     {
       iDebugOutput = 1;
       pcExpression = ppcArgumentVector[3];
+    }
+    else
+    {
+      Usage();
+    }
+  }
+  else if (iArgumentCount == 5)
+  {
+    if
+    (
+         (strcmp(ppcArgumentVector[1], "-b") == 0 || strcmp(ppcArgumentVector[1], "--benchmark") == 0)
+      && (strcmp(ppcArgumentVector[3], "-e") == 0 || strcmp(ppcArgumentVector[3], "--expression") == 0)
+    )
+    {
+      uiIterations = strtoul(ppcArgumentVector[2], &pcInvalidChar, 10);
+      if
+      (
+           (pcInvalidChar != NULL && pcInvalidChar[0] != '\0')
+        || uiIterations <= 0
+        || ((uiIterations & (~0x7fffffff)) != 0)
+      )
+      {
+        fprintf(stderr, "error: invalid count (%s)\n", strerror(ERANGE));
+        exit(XER_Setup);
+      }
+      iBenchmark = 1;
+      pcExpression = ppcArgumentVector[4];
+    }
+    else
+    {
+      Usage();
+    }
+  }
+  else if (iArgumentCount == 6)
+  {
+    if
+    (
+         (strcmp(ppcArgumentVector[1], "-b") == 0 || strcmp(ppcArgumentVector[1], "--benchmark") == 0)
+      && (strcmp(ppcArgumentVector[3], "-d") == 0 || strcmp(ppcArgumentVector[3], "--debug-output") == 0)
+      && (strcmp(ppcArgumentVector[4], "-e") == 0 || strcmp(ppcArgumentVector[4], "--expression") == 0)
+    )
+    {
+      uiIterations = strtoul(ppcArgumentVector[2], &pcInvalidChar, 10);
+      if
+      (
+           (pcInvalidChar != NULL && pcInvalidChar[0] != '\0')
+        || uiIterations <= 0
+        || ((uiIterations & (~0x7fffffff)) != 0)
+      )
+      {
+        fprintf(stderr, "error: invalid count (%s)\n", strerror(ERANGE));
+        return XER_Setup;
+      }
+      iBenchmark = 1;
+      iDebugOutput = 1;
+      pcExpression = ppcArgumentVector[5];
     }
     else
     {
@@ -362,11 +438,68 @@ main(int iArgumentCount, char *ppcArgumentVector[])
    * as many times as desired. Naturally, any values for variables (as
    * returned by their designated callback functions) used in the
    * expression may change over time (i.e., there is no requirement
-   * that they remain static).
+   * that they remain static). Note that the result structure returned
+   * for each execution must be freed with KlelFreeResult() when no
+   * longer needed.
    *
    *********************************************************************
    */
-  psResult = KlelExecute(psContext);
+  for (uiLoopIterations = 0; uiLoopIterations < uiIterations; uiLoopIterations++)
+  {
+    KlelFreeResult(psResult); // Free the previous result. Passing NULL here is OK.
+    iError = gettimeofday(&sFirstTime, NULL);
+    if (iError != 0)
+    {
+      fprintf(stderr, "error: timer failed (%s)\n", strerror(errno));
+      return XER_Timer;
+    }
+    psResult = KlelExecute(psContext);
+    iError = gettimeofday(&sFinalTime, NULL);
+    if (iError != 0)
+    {
+      fprintf(stderr, "error: timer failed (%s)\n", strerror(errno));
+      return XER_Timer;
+    }
+    dFirstTime = (double) sFirstTime.tv_sec + (double) sFirstTime.tv_usec * 0.000001;
+    dFinalTime = (double) sFinalTime.tv_sec + (double) sFinalTime.tv_usec * 0.000001;
+    dDeltaTime = dFinalTime - dFirstTime;
+    dTotTime += dDeltaTime;
+    if (uiLoopIterations == 0)
+    {
+      dMinTime = dMaxTime = dDeltaTime;
+    }
+    else
+    {
+      if (dDeltaTime > dMaxTime)
+      {
+        dMaxTime = dDeltaTime;
+      }
+      else if (dDeltaTime < dMinTime)
+      {
+        dMinTime = dDeltaTime;
+      }
+    } 
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally print the timing results.
+   *
+   *********************************************************************
+   */
+  if (iBenchmark)
+  {
+    printf("KlelExecMinTime='%0.6f'\n", dMinTime);
+    printf("KlelExecMaxTime='%0.6f'\n", dMaxTime);
+    printf("KlelExecAvgTime='%0.6f'\n", dTotTime / uiIterations);
+    printf("KlelExecTotTime='%0.6f'\n", dTotTime);
+    printf("KlelExecCount='%u'\n", uiIterations);
+    if (iDebugOutput == 0)
+    {
+      printf("KlelExprOutput=<<EndOfOutput\n");
+    }
+  }
 
   /*-
    *********************************************************************
@@ -556,6 +689,11 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       printf("EndOfOutput\n");
     }
     free(pcValue);
+  }
+
+  if (iBenchmark && iDebugOutput == 0)
+  {
+    printf("EndOfOutput\n");
   }
 
   /*-

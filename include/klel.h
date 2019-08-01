@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: klel.h,v 1.78 2012/11/30 18:50:14 klm Exp $
+ * $Id: klel.h,v 1.83 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -113,7 +119,7 @@
  ***********************************************************************
  */
 #ifndef KLEL_DEFAULT_QUOTED_CHARS
-#define KLEL_DEFAULT_QUOTED_CHARS "'|;&\" \t\r\n><\\"
+#define KLEL_DEFAULT_QUOTED_CHARS "`'|;&\" \t\r\n><\\"
 #endif
 
 /*-
@@ -437,6 +443,29 @@ typedef enum _KLEL_NODE_TYPE
   KLEL_NODE_UNLIKE           /* !~                */
 } KLEL_NODE_TYPE;
 
+#ifndef _KLEL_STEEL
+#define _KLEL_STEEL
+typedef enum _KLEL_STRING_NODE_TYPE
+{
+  KLEL_STRING_NODE_LITERAL,
+  KLEL_STRING_NODE_CONCAT,
+  KLEL_STRING_NODE_EMPTY
+} KLEL_STRING_NODE_TYPE;
+
+typedef struct _KLEL_STRING_NODE
+{
+  KLEL_STRING_NODE_TYPE    iType;
+  size_t                   szLength;
+  int                      iRefCount;
+
+  char                     *pcStringLiteral;
+
+  struct _KLEL_STRING_NODE *psLeftSubNode;
+  struct _KLEL_STRING_NODE *psRightSubNode;
+} KLEL_STRING_NODE;
+#endif
+
+
 typedef struct _KLEL_NODE
 {
   KLEL_NODE_TYPE    iType;
@@ -444,6 +473,7 @@ typedef struct _KLEL_NODE
 
   int               iClosure;
   size_t            szLength;
+  KLEL_STRING_NODE *psFragment;
   char              acFragment[KLEL_MAX_NAME];
   double            dReal;
   int64_t           llInteger;
@@ -468,6 +498,7 @@ typedef struct _KLEL_VALUE
   struct _KLEL_VALUE *(*fFunction)(struct _KLEL_VALUE **, void *);
   int64_t            llInteger;
   size_t             szLength;
+  KLEL_STRING_NODE  *psString;
   char               acString[KLEL_FLEXIBLE_ARRAY];
 } KLEL_VALUE;
 
@@ -688,6 +719,18 @@ int KlelGetReleasePatch(void);
 int KlelGetVersionCurrent(void);
 int KlelGetVersionRevision(void);
 int KlelGetVersionAge(void);
+int KlelGetLibraryCurrent(void);
+int KlelGetLibraryRevision(void);
+int KlelGetLibraryAge(void);
+
+/*-
+ ***********************************************************************
+ *
+ * Get the version string for the library.
+ *
+ ***********************************************************************
+ */
+const char *KlelGetLibraryVersion(void);
 
 /*-
  ***********************************************************************

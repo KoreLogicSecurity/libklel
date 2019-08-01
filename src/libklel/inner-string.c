@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: inner-string.c,v 1.27 2012/11/20 16:38:37 rking Exp $
+ * $Id: inner-string.c,v 1.30 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -454,12 +460,14 @@ KLEL_STRING *
 KlelStringOfFragment(KLEL_NODE *psNode, const char *pcString, unsigned long ulFlags)
 {
   KLEL_STRING *psResult = KlelStringNew();
+  char *pcTemp = NULL;
 
   if (psResult != NULL)
   {
+    pcTemp = SteelStringToCString(psNode->psFragment);
     if (psNode->szLength == 1)
     {
-      switch (psNode->acFragment[0])
+      switch (pcTemp[0])
       {
         case '%':
           KlelStringPrintf(psResult, "\"\\%%\"");
@@ -484,19 +492,20 @@ KlelStringOfFragment(KLEL_NODE *psNode, const char *pcString, unsigned long ulFl
         default:
           if (isprint(psNode->acFragment[0]))
           {
-            KlelStringPrintf(psResult, "\"%c\"", psNode->acFragment[0]);
+            KlelStringPrintf(psResult, "\"%c\"", pcTemp[0]);
           }
           else
           {
-            KlelStringPrintf(psResult, "\\x%02x", (int)(psNode->acFragment[0]));
+            KlelStringPrintf(psResult, "\\x%02x", (int)(pcTemp[0]));
           }
           break;
       }
     }
     else
     {
-      KlelStringPrintf(psResult, "\"%s\"", psNode->acFragment);
+      KlelStringPrintf(psResult, "\"%s\"", pcTemp);
     }
+    free(pcTemp);
   }
 
   return psResult;

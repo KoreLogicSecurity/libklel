@@ -25,9 +25,13 @@ ERRORS="0"
 
 Fail()
 {
-  INITIAL_OUTPUT="`${KLEL_EXPR} -e \"${1}\" 2> /dev/null`"
+  INITIAL_OUTPUT="`${KLEL_EXPR} -b 1 -e \"${1}\" 2> /dev/null`"
   MY_OBSERVED_STATUS=$?
-  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | cut -d ':' -f 2,3 | sed 's/^ //'`"
+  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | sed '1,/EndOfOutput$/d; /^EndOfOutput/d;'`"
+  MY_EXEC_TIME="`echo \"${INITIAL_OUTPUT}\" | egrep '^KlelExecTotTime=' | awk -F= '{print $2}' | sed 's/^.//; s/.$//;'`"
+  if [ -z "${MY_EXEC_TIME}" ] ; then
+    MY_EXEC_TIME="X.XXXXXX"
+  fi
   if [ ${MY_OBSERVED_STATUS} -eq 0 ] ; then
     MY_EXPECTED_RESULT="fail"
     MY_OBSERVED_RESULT="pass"
@@ -38,7 +42,7 @@ Fail()
     MY_OBSERVED_RESULT="fail"
     MY_TEST_RESULT="pass"
   fi
-  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
+  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Time='${MY_EXEC_TIME}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
 }
 
 #######################################################################
@@ -49,9 +53,13 @@ Fail()
 
 Pass()
 {
-  INITIAL_OUTPUT="`${KLEL_EXPR} -e \"${1}\" 2> /dev/null`"
+  INITIAL_OUTPUT="`${KLEL_EXPR} -b 1 -e \"${1}\" 2> /dev/null`"
   MY_OBSERVED_STATUS=$?
-  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | cut -d ':' -f 2,3 | sed 's/^ //'`"
+  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | sed '1,/EndOfOutput$/d; /^EndOfOutput/d;'`"
+  MY_EXEC_TIME="`echo \"${INITIAL_OUTPUT}\" | egrep '^KlelExecTotTime=' | awk -F= '{print $2}' | sed 's/^.//; s/.$//;'`"
+  if [ -z "${MY_EXEC_TIME}" ] ; then
+    MY_EXEC_TIME="X.XXXXXX"
+  fi
   if [ ${MY_OBSERVED_STATUS} -eq 0 -a X"${MY_OBSERVED_OUTPUT}" = X"${2}" ] ; then
     MY_EXPECTED_RESULT="pass"
     MY_OBSERVED_RESULT="pass"
@@ -62,7 +70,7 @@ Pass()
     MY_TEST_RESULT="fail"
     ERRORS="1"
   fi
-  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
+  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Time='${MY_EXEC_TIME}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
 }
 
 #######################################################################
@@ -73,9 +81,13 @@ Pass()
 
 PassExitStatus()
 {
-  INITIAL_OUTPUT="`${KLEL_EXPR} -d -e \"${1}\" 2> /dev/null | egrep '^KlelCommandStatus'`"
+  INITIAL_OUTPUT="`${KLEL_EXPR} -b 1 -d -e \"${1}\" 2> /dev/null`"
   MY_OBSERVED_STATUS=$?
-  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | cut -d '=' -f 2 | sed 's/^.//; s/.$//;'`"
+  MY_OBSERVED_OUTPUT="`echo \"${INITIAL_OUTPUT}\" | egrep '^KlelCommandStatus=' | awk -F= '{print $2}' | sed 's/^.//; s/.$//;'`"
+  MY_EXEC_TIME="`echo \"${INITIAL_OUTPUT}\" | egrep '^KlelExecTotTime=' | awk -F= '{print $2}' | sed 's/^.//; s/.$//;'`"
+  if [ -z "${MY_EXEC_TIME}" ] ; then
+    MY_EXEC_TIME="X.XXXXXX"
+  fi
   MY_EXPECTED_RESULT=${2}
   MY_OBSERVED_RESULT=${MY_OBSERVED_OUTPUT}
   if [ ${MY_OBSERVED_STATUS} -eq 0 -a X"${MY_OBSERVED_RESULT}" = X"${MY_EXPECTED_RESULT}" ] ; then
@@ -84,7 +96,7 @@ PassExitStatus()
     MY_TEST_RESULT="fail"
     ERRORS="1"
   fi
-  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
+  echo "Expected='${MY_EXPECTED_RESULT}'; Observed='${MY_OBSERVED_RESULT}'; Result='${MY_TEST_RESULT}'; Status='${MY_OBSERVED_STATUS}'; Time='${MY_EXEC_TIME}'; Output='${MY_OBSERVED_OUTPUT}'; Expression='${1}';"
 }
 
 #######################################################################
@@ -301,6 +313,18 @@ PassExitStatus()
   Fail  'entier(2)'
   Fail  'real(?)'
   Fail  'unknown'
+
+  #####################################################################
+  #
+  # String concatenation and interpolation tests
+  #
+  #####################################################################
+
+  Pass 'let i = now() in strlen(string_of_int(i) . string_of_int(i) . "%{i}%(i)")' '40'
+  Pass 'let i = now() in let j = string_of_int(now()) in strlen(string_of_int(i) . (j) . "%{i}%(j)")' '40'
+  Pass 'strlen("" . "a" . "aa" . "aaa" . "aaaa" . "aaaaa" . "aaaaaa" . "aaaaaaa" . "aaaaaaaa" .  "aaaaaaaaa" . "aaaaaaaaaa" .  "aaaaaaaaaaa" .  "aaaaaaaaaaaa" .  "aaaaaaaaaaaaa" .  "aaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaaaaaa" .  "aaaaaaaaaaaaaaaaaaaaaaaa")' '300'
+  Pass 'let i = 10 in "%{i}%{true}%(i)"' '10true10'
+  Pass 'let i = "&" in "%{i}%(i)%{i}"' '&\&&'
 
   #####################################################################
   #

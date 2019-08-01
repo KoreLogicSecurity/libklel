@@ -1,0 +1,4 @@
+#!/bin/sh
+BDIR="b"
+IDIR="i"
+rm -rf ${BDIR} ${IDIR}

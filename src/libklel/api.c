@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: api.c,v 1.104 2012/11/30 18:50:14 klm Exp $
+ * $Id: api.c,v 1.110 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -32,6 +38,7 @@ KlelCompile(const char *pcInput, unsigned long ulFlags, const KLEL_TYPE_CALLBACK
   KLEL_VALUE   *psValue = NULL;
   char         *pcName = NULL;
   char         *pcResult = NULL;
+  char         *pcTemp = NULL;
   size_t        szIndex  = 0;
   size_t        szLength = 0;
   uint32_t      uiResult = 0;
@@ -129,7 +136,9 @@ KlelCompile(const char *pcInput, unsigned long ulFlags, const KLEL_TYPE_CALLBACK
   }
   else
   {
-    strncpy(pcName, psContext->psExpression->apsChildren[KLEL_LABEL_INDEX]->acFragment, KLEL_MAX_NAME);
+    pcTemp = SteelStringToCString(psContext->psExpression->apsChildren[KLEL_LABEL_INDEX]->psFragment);
+    strncpy(pcName, pcTemp, KLEL_MAX_NAME);
+    free(pcTemp);
   }
   psContext->pcName = pcName;
 
@@ -719,7 +728,6 @@ KlelCreateValue(KLEL_EXPR_TYPE iType, ...)
   va_list    vlArgs;
   size_t     szLength  = 0;
   KLEL_VALUE *psResult = calloc(1, sizeof(KLEL_VALUE) + KLEL_MAX_NAME + 1);
-  KLEL_VALUE *psTemp   = NULL;
   const char *pcTemp   = NULL;
 
   if (psResult != NULL)
@@ -744,29 +752,22 @@ KlelCreateValue(KLEL_EXPR_TYPE iType, ...)
       case KLEL_EXPR_STRING:
         szLength = va_arg(vlArgs, size_t);
         pcTemp   = va_arg(vlArgs, const char *);
-
-        KLEL_ASSERT(pcTemp != NULL || szLength == 0);
-
-        if (pcTemp == NULL && szLength != 0)
+        
+        if (pcTemp == NULL)
         {
           KlelFreeResult(psResult);
           va_end(vlArgs);
           return NULL;
         }
 
-        psTemp = realloc(psResult, sizeof(KLEL_VALUE) + szLength + 1);
-        if (psTemp == NULL)
+        psResult->psString = SteelCreateFragment(szLength, pcTemp);
+        if (psResult->psString == NULL && szLength != 0)
         {
           KlelFreeResult(psResult);
           va_end(vlArgs);
           return NULL;
         }
-
-        psResult           = psTemp;
-        psResult->iType    = KLEL_EXPR_STRING;
         psResult->szLength = szLength;
-        memcpy(psResult->acString, pcTemp, szLength);
-        psResult->acString[szLength] = 0;
         break;
 
       default:
@@ -782,8 +783,8 @@ KlelCreateValue(KLEL_EXPR_TYPE iType, ...)
           va_end(vlArgs);
           return NULL;
         }
-
-        strncpy(psResult->acString, pcTemp, KLEL_MAX_NAME);
+        
+        psResult->psString = SteelCreateFragment(strlen(pcTemp), pcTemp);
         break;
     }
   }
@@ -914,7 +915,9 @@ KlelValueToQuotedString(const KLEL_VALUE *psValue, size_t *pszLength)
 char *
 KlelValueToString(const KLEL_VALUE *psValue, size_t *pszLength)
 {
+  KLEL_STRING_NODE *psStringNode = NULL;
   char *pcBuffer = calloc(1, KLEL_MAX_NAME + 1);
+  int iOff = 0;
 
   KLEL_ASSERT(psValue  != NULL);
   KLEL_ASSERT(pszLength != NULL);
@@ -940,19 +943,31 @@ KlelValueToString(const KLEL_VALUE *psValue, size_t *pszLength)
 
       case KLEL_EXPR_STRING:
         free(pcBuffer);
-        pcBuffer = calloc(1, psValue->szLength + 1);
-        if (pcBuffer != NULL)
+        if (psValue->psString != NULL)
         {
-          memcpy(pcBuffer, psValue->acString, psValue->szLength);
-          *pszLength = psValue->szLength;
+          pcBuffer = SteelStringToCString(psValue->psString);
         }
+        else if (psValue->szLength == 0)
+        {
+          pcBuffer = calloc(1, 1);
+          if (pcBuffer == NULL)
+          {
+            return NULL;
+          }
+        }
+        else
+        {
+          return NULL;
+        }
+        *pszLength = psValue->szLength;
         break;
 
       default:
         if (KLEL_IS_FUNCTION(psValue->iType))
         {
-          pcBuffer = calloc(KLEL_MAX_NAME + 1, 1);
-          snprintf(pcBuffer, KLEL_MAX_NAME, "\\%s", psValue->acString);
+          free(pcBuffer);
+          KLEL_ASSERT(psValue->psString != NULL);
+          pcBuffer = SteelStringToCString(psValue->psString);
         }
         else
         {
@@ -987,7 +1002,7 @@ KlelFreeNode(KLEL_NODE *psResult)
         KlelFreeNode(psResult->apsChildren[szi]);
       }
     }
-
+    SteelFreeString(psResult->psFragment);
     free(psResult);
   }
 }
@@ -1005,6 +1020,7 @@ KlelFreeResult(KLEL_VALUE *psResult)
 {
   if (psResult != NULL)
   {
+    SteelFreeString(psResult->psString);
     free(psResult);
   }
 }
@@ -1064,7 +1080,7 @@ KlelReportMemoryAllocationError(KLEL_CONTEXT *psContext)
   if (psContext != NULL)
   {
     KlelClearError(psContext);
-    psContext->pcError = gpcMemoryAllocationError;
+    psContext->pcError = (char *)gpcMemoryAllocationError; /* FIXME - This is violating the type system in all sorts of ways. */
   }
 }
 
@@ -1324,40 +1340,96 @@ KlelGetReleaseString(void)
 /*-
  ***********************************************************************
  *
- * KlelGetVersionCurrent
+ * KlelGetVersionCurrent (Note that this is legacy function.)
  *
  ***********************************************************************
  */
 int
 KlelGetVersionCurrent(void)
 {
-  return KLEL_VERSION_CURRENT;
+  return KLEL_LIBRARY_CURRENT;
 }
 
 
 /*-
  ***********************************************************************
  *
- * KlelGetVersionRevision
+ * KlelGetVersionRevision (Note that this is legacy function.)
  *
  ***********************************************************************
  */
 int
 KlelGetVersionRevision(void)
 {
-  return KLEL_VERSION_REVISION;
+  return KLEL_LIBRARY_REVISION;
 }
 
 
 /*-
  ***********************************************************************
  *
- * KlelGetVersionAge
+ * KlelGetVersionAge (Note that this is legacy function.)
  *
  ***********************************************************************
  */
 int
 KlelGetVersionAge(void)
 {
-  return KLEL_VERSION_AGE;
+  return KLEL_LIBRARY_AGE;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetLibraryCurrent
+ *
+ ***********************************************************************
+ */
+int
+KlelGetLibraryCurrent(void)
+{
+  return KLEL_LIBRARY_CURRENT;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetLibraryRevision
+ *
+ ***********************************************************************
+ */
+int
+KlelGetLibraryRevision(void)
+{
+  return KLEL_LIBRARY_REVISION;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetLibraryAge
+ *
+ ***********************************************************************
+ */
+int
+KlelGetLibraryAge(void)
+{
+  return KLEL_LIBRARY_AGE;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * KlelGetReleaseString
+ *
+ ***********************************************************************
+ */
+const char *
+KlelGetLibraryVersion(void)
+{
+  return KLEL_LIBRARY_VERSION;
 }

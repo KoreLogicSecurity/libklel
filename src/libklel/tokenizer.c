@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: tokenizer.c,v 1.19 2012/11/14 02:42:06 klm Exp $
+ * $Id: tokenizer.c,v 1.23 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -141,7 +147,7 @@ KlelNextToken(KLEL_CONTEXT *psContext)
 {
   KLEL_NODE *psToken = KlelInnerNextToken(psContext);
 
-  if (psToken != NULL && psToken->iType == KLEL_NODE_DISCARD)
+  while (psToken != NULL && psToken->iType == KLEL_NODE_DISCARD)
   {
     KlelFreeNode(psToken);
     psToken = KlelInnerNextToken(psContext);
@@ -254,6 +260,7 @@ KlelPeekToken(KLEL_CONTEXT *psContext, unsigned int uiCount)
       return KLEL_NODE_ERROR;
     }
     iType = psToken->iType;
+    SteelFreeString(psToken->psFragment);
     free(psToken);
     uiCount--;
   }
@@ -288,29 +295,29 @@ KlelCharToToken(KLEL_CONTEXT *psContext, KLEL_NODE *psNode, const char *pcBuffer
     switch (pcBuffer[0])
     {
       case '%':
-        psNode->acFragment[0] = '%';
+        psNode->psFragment = SteelCreateFragment(1, "%");
         break;
 
       case '\\':
-        psNode->acFragment[0] = '\\';
+        psNode->psFragment = SteelCreateFragment(1, "\\");
         break;
 
       case '"':
-        psNode->acFragment[0] = '"';
+        psNode->psFragment = SteelCreateFragment(1, "\"");
         break;
 
       case 'r':
-        psNode->acFragment[0] = '\r';
+        psNode->psFragment = SteelCreateFragment(1, "\r");
         break;
 
       case 'n':
-        psNode->acFragment[0] = '\n';
+        psNode->psFragment = SteelCreateFragment(1, "\n");
         break;
 
       case 'x':
         snprintf(acHexBuffer, KLEL_MAX_NAME, "0x%c%c", pcBuffer[1], pcBuffer[2]);
         sscanf(acHexBuffer, "%x", &iInt);
-        psNode->acFragment[0] = (char)iInt;
+        psNode->psFragment = SteelCreateFragment(1, (char *)&iInt);
         break;
     }
   }
@@ -334,6 +341,7 @@ KLEL_NODE *
 KlelDesignatorToToken(KLEL_CONTEXT *psContext, KLEL_NODE *psNode, const char *pcBuffer)
 {
   size_t szi                       = 0;
+  size_t szLength                  = strlen(pcBuffer);
   const char *apcKeywords[]        = {"eval",         "fail",         "if",         "in",         "let",         "pass",         "then"};
   KLEL_NODE_TYPE aiKeywordTokens[] = {KLEL_NODE_EVAL, KLEL_NODE_FAIL, KLEL_NODE_IF, KLEL_NODE_IN, KLEL_NODE_LET, KLEL_NODE_PASS, KLEL_NODE_THEN};
 
@@ -354,6 +362,8 @@ KlelDesignatorToToken(KLEL_CONTEXT *psContext, KLEL_NODE *psNode, const char *pc
   if (psNode->iType == KLEL_NODE_DESIGNATOR || psNode->iType == KLEL_NODE_INTERP || psNode->iType == KLEL_NODE_QUOTED_INTERP)
   {
     snprintf(psNode->acFragment, KLEL_MAX_NAME, "%s", pcBuffer);
+    szLength = (szLength > KLEL_MAX_NAME) ? KLEL_MAX_NAME : szLength;
+    psNode->psFragment = SteelCreateFragment(szLength, pcBuffer);
   }
 
   return psNode;
@@ -379,8 +389,8 @@ KlelFragmentToToken(KLEL_CONTEXT *psContext, KLEL_NODE *psNode, const char *pcBu
 
   if (psNode != NULL)
   {
-    memcpy(psNode->acFragment, pcBuffer, szLength >= KLEL_MAX_NAME ? KLEL_MAX_NAME : szLength);
-    psNode->szLength = szLength;
+    psNode->szLength = (szLength > KLEL_MAX_NAME) ? KLEL_MAX_NAME : szLength;
+    psNode->psFragment = SteelCreateFragment(psNode->szLength, pcBuffer);
   }
 
   return psNode;
@@ -435,7 +445,7 @@ KlelIntegerToToken(KLEL_CONTEXT *psContext, KLEL_NODE *psNode, const char *pcBuf
 /*-
  ***********************************************************************
  *
- * KlelIntegerToToken
+ * KlelRealToToken
  *
  ***********************************************************************
  */

@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: interpreter.h,v 1.14 2012/11/14 01:43:25 klm Exp $
+ * $Id: interpreter.h,v 1.17 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -133,7 +139,7 @@ KLEL_VALUE *KlelDoSubtract(KLEL_NODE *psNode, KLEL_CONTEXT *psContext);
           break;                                                                                                                  \
                                                                                                                                   \
         case KLEL_TYPE_STRING:                                                                                                    \
-          bEqual = (psLeft->szLength op psRight->szLength eq memcmp(psLeft->acString, psRight->acString, psLeft->szLength) op 0); \
+          bEqual = SteelCompareToNode(psLeft->psString, psRight->psString) op 0; \
           break;                                                                                                                  \
       }                                                                                                                           \
     }                                                                                                                             \

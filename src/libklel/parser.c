@@ -1,11 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: parser.c,v 1.73 2012/11/14 02:43:14 klm Exp $
+ * $Id: parser.c,v 1.76 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
@@ -159,7 +165,7 @@ KlelReleaseNode(KLEL_NODE *psNode)
           KlelReleaseNode(psNode->apsChildren[iChild]);
         }
       }
-
+      SteelFreeString(psNode->psFragment);
       free(psNode);
     }
   }
@@ -544,6 +550,7 @@ KLEL_PARSER_PRODUCTION(KlelFactor)
   KLEL_END_PRODUCTION_TOKENS
 
   int iArgumentCount = 0;
+  char *psTemp = NULL;
 
   switch (KLEL_PEEK())
   {
@@ -565,7 +572,10 @@ KLEL_PARSER_PRODUCTION(KlelFactor)
     case KLEL_NODE_DESIGNATOR:
       KLEL_CAPTURE_PRODUCTION(Designator, KLEL_EXPECT(KLEL_NODE_DESIGNATOR));
       KLEL_REPLACE_RETURNED_NODE(Designator);
-      KLEL_CAPTURED_PRODUCTION(Designator)->iClosure = KlelClosureForDesignator(psContext, KLEL_CAPTURED_PRODUCTION(Designator)->acFragment);
+      psTemp = SteelStringToCString(KLEL_CAPTURED_PRODUCTION(Designator)->psFragment);
+      KLEL_CAPTURED_PRODUCTION(Designator)->iClosure = KlelClosureForDesignator(psContext, psTemp);
+      free(psTemp);
+
 
       if (KLEL_PEEK() == KLEL_NODE_OPEN_PAREN)
       {
@@ -740,7 +750,7 @@ KLEL_PARSER_PRODUCTION(KlelLet)
   KLEL_CAPTURE_PRODUCTION(Definition, KLEL_INVOKE(KlelExpression));
   KLEL_CAPTURE_PRODUCTION(In,         KLEL_EXPECT(KLEL_NODE_IN));
 
-  KLEL_PUSH_ENVIRONMENT(psContext, KLEL_CAPTURED_PRODUCTION(Designator)->acFragment);
+  KLEL_PUSH_ENVIRONMENT(psContext, KLEL_CAPTURED_PRODUCTION(Designator)->psFragment->pcStringLiteral);
     KLEL_CAPTURE_PRODUCTION(Expression, KLEL_INVOKE(KlelExpression));
     KLEL_SET_RETURNED_NODE_ENVIRONMENT(sClosure.iIndex);
   KLEL_POP_ENVIRONMENT(psContext);
@@ -768,18 +778,23 @@ KLEL_PARSER_PRODUCTION(KlelString)
     KLEL_TOKEN_DEF(OpenQuote)
   KLEL_END_PRODUCTION_TOKENS
 
+  char *psTemp = NULL;
+
   KLEL_CAPTURE_PRODUCTION(OpenQuote, KLEL_EXPECT(KLEL_NODE_QUOTE));
 
   if (KLEL_PEEK() == KLEL_NODE_QUOTE)
   {
     KLEL_CAPTURE_PRODUCTION(FragmentLeft, KLEL_CREATE_NODE(KLEL_NODE_FRAGMENT));
+    KLEL_CAPTURED_PRODUCTION(FragmentLeft)->psFragment = &gsEmptyStringSingleton;
   }
   else if (KLEL_PEEK() == KLEL_NODE_FRAGMENT || KLEL_PEEK() == KLEL_NODE_INTERP || KLEL_PEEK() == KLEL_NODE_QUOTED_INTERP)
   {
     KLEL_CAPTURE_PRODUCTION(FragmentLeft, KLEL_EXPECT(KLEL_PEEK()));
     if (KLEL_CAPTURED_PRODUCTION(FragmentLeft)->iType == KLEL_NODE_INTERP || KLEL_CAPTURED_PRODUCTION(FragmentLeft)->iType == KLEL_NODE_QUOTED_INTERP)
     {
-      KLEL_CAPTURED_PRODUCTION(FragmentLeft)->iClosure = KlelClosureForDesignator(psContext, KLEL_CAPTURED_PRODUCTION(FragmentLeft)->acFragment);
+      psTemp = SteelStringToCString(KLEL_CAPTURED_PRODUCTION(FragmentLeft)->psFragment);
+      KLEL_CAPTURED_PRODUCTION(FragmentLeft)->iClosure = KlelClosureForDesignator(psContext, psTemp);
+      free(psTemp);
     }
   }
 
@@ -788,7 +803,9 @@ KLEL_PARSER_PRODUCTION(KlelString)
     KLEL_CAPTURE_PRODUCTION(FragmentRight, KLEL_EXPECT(KLEL_PEEK()));
     if (KLEL_CAPTURED_PRODUCTION(FragmentRight)->iType == KLEL_NODE_INTERP || KLEL_CAPTURED_PRODUCTION(FragmentRight)->iType == KLEL_NODE_QUOTED_INTERP)
     {
-      KLEL_CAPTURED_PRODUCTION(FragmentRight)->iClosure = KlelClosureForDesignator(psContext, KLEL_CAPTURED_PRODUCTION(FragmentRight)->acFragment);
+      psTemp = SteelStringToCString(KLEL_CAPTURED_PRODUCTION(FragmentRight)->psFragment);
+      KLEL_CAPTURED_PRODUCTION(FragmentRight)->iClosure = KlelClosureForDesignator(psContext, psTemp);
+      free(psTemp);
     }
     KLEL_CAPTURE_PRODUCTION(Concat, KLEL_CREATE_NODE(KLEL_NODE_DOT));
     KLEL_ROTATE_PRODUCTION(FragmentLeft, KLEL_OPERAND1_INDEX, Concat);

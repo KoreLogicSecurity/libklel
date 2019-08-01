@@ -26,5 +26,9 @@ B<4 => B<XER_Execute>
 
 B<5 => B<XER_GuardedCommand>
 
+=item *
+
+B<6 => B<XER_Timer>
+
 =back
 

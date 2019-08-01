@@ -1,0 +1,20 @@
+#!/bin/sh
+BDIR="b"
+IDIR="i"
+PDIR=`pwd`
+DEBUG=""
+case "${1}" in
+debug)
+  DEBUG="--enable-debugging"
+  ;;
+reconf)
+  autoreconf -f
+  ;;
+esac
+for DIR in "${BDIR}" "${IDIR}" ; do
+  if [ -d ${DIR} ] ; then
+    rm -rf ${DIR} || { echo "Error='Failed to remove \"${DIR}\".'" 1>&2 ; exit 2 ; }
+  fi
+done
+mkdir -p ${BDIR} || { echo "Error='Failed to create \"${BDIR}\".'" 1>&2 ; exit 2 ; }
+( cd ${BDIR} && ../configure --prefix=${PDIR}/${IDIR} ${DEBUG} && make install )

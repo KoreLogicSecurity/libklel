@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.ac,v 1.35 2012/11/30 22:00:02 klm Exp $
+# $Id: configure.ac,v 1.39 2019/05/01 21:07:04 klm Exp $
 #
 ########################################################################
 
@@ -10,16 +10,17 @@ dnl # Set project/package and library version information.
 dnl #
 dnl ####################################################################
 
-m4_define(libklel_current, m4_esyscmd([egrep '^CURRENT=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
-m4_define(libklel_revision, m4_esyscmd([egrep '^REVISION=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
-m4_define(libklel_age, m4_esyscmd([egrep '^AGE=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
+m4_define(m4_libklel_current, m4_esyscmd([egrep '^CURRENT=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
+m4_define(m4_libklel_revision, m4_esyscmd([egrep '^REVISION=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
+m4_define(m4_libklel_age, m4_esyscmd([egrep '^AGE=[0-9]+$' VERSION.LIBRARY | awk -F= '{print $2}' | tr -d '\n']))
+m4_define(m4_libklel_version, m4_esyscmd([echo -n "m4_libklel_current:m4_libklel_revision:m4_libklel_age"]))
 
-m4_define(libklel_release_number, m4_esyscmd([cat VERSION | tr -d '\n']))
-m4_define(libklel_release_string, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | tr -d '\n']))
+m4_define(m4_libklel_release_number, m4_esyscmd([cat VERSION | tr -d '\n']))
+m4_define(m4_libklel_release_string, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | tr -d '\n']))
 
-m4_define(libklel_major, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $1}' | tr -d '\n']))
-m4_define(libklel_minor, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $2}' | tr -d '\n']))
-m4_define(libklel_patch, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $3}' | tr -d '\n']))
+m4_define(m4_libklel_major, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $1}' | tr -d '\n']))
+m4_define(m4_libklel_minor, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $2}' | tr -d '\n']))
+m4_define(m4_libklel_patch, m4_esyscmd([utils/version2string -t tar -v `cat VERSION` | awk -F. '{print $3}' | tr -d '\n']))
 
 dnl ####################################################################
 dnl #
@@ -28,26 +29,39 @@ dnl #
 dnl ####################################################################
 
 AC_PREREQ(2.68)
-AC_INIT([libklel], [libklel_release_string], [libklel-project@korelogic.com], [libklel])
+AC_INIT([libklel], [m4_libklel_release_string], [libklel-project@korelogic.com], [libklel])
 AC_CONFIG_AUX_DIR(utils)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/libklel/parser.c])
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([foreign])
 
-AC_DEFINE(KLEL_VERSION_CURRENT, [libklel_current], [Define to the current version number of this library.])
-AC_DEFINE(KLEL_VERSION_REVISION, [libklel_revision], [Define to the revision version number of this library.])
-AC_DEFINE(KLEL_VERSION_AGE, [libklel_age], [Define to the age version number of this library.])
-libklel_version="libklel_current:libklel_revision:libklel_age"
+AC_DEFINE(KLEL_LIBRARY_CURRENT, [m4_libklel_current], [Define to the current version number of this library.])
+AC_DEFINE(KLEL_LIBRARY_REVISION, [m4_libklel_revision], [Define to the revision version number of this library.])
+AC_DEFINE(KLEL_LIBRARY_AGE, [m4_libklel_age], [Define to the age version number of this library.])
+AC_DEFINE(KLEL_LIBRARY_VERSION, ["m4_libklel_version"], [Define to the version number of this library.])
+libklel_version="m4_libklel_version"
 AC_SUBST(libklel_version)
 
-AC_DEFINE(KLEL_RELEASE_NUMBER, [libklel_release_number], [Define to the release number of this package.])
+AC_DEFINE(KLEL_RELEASE_NUMBER, [m4_libklel_release_number], [Define to the release number of this package.])
 
-AC_DEFINE(KLEL_RELEASE_MAJOR, [libklel_major], [Define to the major release number of this package.])
-AC_DEFINE(KLEL_RELEASE_MINOR, [libklel_minor], [Define to the minor release number of this package.])
-AC_DEFINE(KLEL_RELEASE_PATCH, [libklel_patch], [Define to the patch release number of this package.])
+AC_DEFINE(KLEL_RELEASE_MAJOR, [m4_libklel_major], [Define to the major release number of this package.])
+AC_DEFINE(KLEL_RELEASE_MINOR, [m4_libklel_minor], [Define to the minor release number of this package.])
+AC_DEFINE(KLEL_RELEASE_PATCH, [m4_libklel_patch], [Define to the patch release number of this package.])
 
 : ${CFLAGS="-O3"}
+
+case "${host_cpu}" in
+arm)
+  case "${target_os}" in
+  *linux*)
+    LIBS="${LIBS} -lgcc"
+    ;;
+  esac
+  ac_cv_func_malloc_0_nonnull="yes"
+  ac_cv_func_realloc_0_nonnull="yes"
+  ;;
+esac
 
 dnl ####################################################################
 dnl #

@@ -1,17 +1,23 @@
 /*-
  ***********************************************************************
  *
- * $Id: klel-find.c,v 1.52 2012/11/14 01:43:25 klm Exp $
+ * $Id: klel-find.c,v 1.56 2019/07/31 15:59:27 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The KL-EL Project, All Rights Reserved.
+ * Copyright 2011-2019 The KL-EL Project, All Rights Reserved.
+ *
+ * This software, having been partly or wholly developed and/or
+ * sponsored by KoreLogic, Inc., is hereby released under the terms
+ * and conditions set forth in the project's "README.LICENSE" file.
+ * For a list of all contributors and sponsors, please refer to the
+ * project's "README.CREDITS" file.
  *
  ***********************************************************************
  */
 #include "config.h"
 
-#define _BSD_SOURCE       /* For DT_DIR             */
+#define _DEFAULT_SOURCE   /* For DT_DIR             */
 #define _XOPEN_SOURCE 500 /* For S_ISVTX and nftw() */
 #include <dirent.h>
 #include <errno.h>
@@ -406,20 +412,20 @@ ProcessDirectory(const char *pcName, const struct stat *psStat, int iFlags, stru
       psCommand = KlelGetCommand(gpsContext);
       if (psCommand != NULL)
       {
-        if (strcmp(psCommand->pcInterpreter, "system") == 0)
+        if (strcmp(psCommand->acInterpreter, "system") == 0)
         {
-          iStatus = system(psCommand->pcProgram);
+          iStatus = system(psCommand->acProgram);
           if (iStatus == -1)
           {
             perror("unable to execute command");
           }
         }
-        else if (strcmp(psCommand->pcInterpreter, "exec") == 0)
+        else if (strcmp(psCommand->acInterpreter, "exec") == 0)
         {
           iPid = fork();
           if (iPid == 0)
           {
-            if (execv(psCommand->pcProgram, psCommand->ppcArgumentVector) != 0)
+            if (execv(psCommand->acProgram, psCommand->ppcArgumentVector) != 0)
             {
               perror("unable to execute command");
             }
